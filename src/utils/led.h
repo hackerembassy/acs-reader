@@ -5,6 +5,7 @@
 #include <cstdint>
 
 void InitLED();
+void StartLED();
 void StartLEDRing();
 void StopLEDRing();
 void ErrorLED();

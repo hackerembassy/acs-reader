@@ -1,6 +1,7 @@
 #include "led.h"
 
 #include "../mcu_config.h"
+#include "debug.h"
 #include <Arduino.h>
 #include <FastLED.h>
 #include "freertos/FreeRTOS.h"
@@ -9,24 +10,33 @@ CRGB leds[NUM_LEDS];
 
 uint8_t ringPosition = 0;
 uint8_t ringRun = 0;
+bool ledRun = false;
 
+TaskHandle_t LedTask;
 
-TimerHandle_t ringTimer;
+void ledTask(void * pvParameters) {
+  DEBUG_PRINT("LED started on core %d\n", xPortGetCoreID());
 
-void LEDRing(TimerHandle_t xTimer) {
-  
-  if(ringRun == 1) {
-    fadeToBlackBy(leds, NUM_LEDS, 128);    //Dims the LEDs by 128/256 (1/2) and thus sets the trail's length.
-    leds[ringPosition] = CRGB::White;    //setHue: variable to set the LEDs colour
-    ringPosition++;    //Shifts all LEDs one step in the currently active direction    
-    if (ringPosition == NUM_LEDS) ringPosition = 0;    //If one end is reached, reset the position to loop around
-  } else {
-    ringPosition++;
-    if(ringPosition > 35) xTimerStop(ringTimer, pdMS_TO_TICKS(500));
-    if (ringRun == 0) fadeToBlackBy(leds, NUM_LEDS, 80); 
-    else fadeToBlackBy(leds, NUM_LEDS, 32);
+  for (;;) {
+    if(ledRun) {
+        if(ringRun == 1) {
+            fadeToBlackBy(leds, NUM_LEDS, 128);    //Dims the LEDs by 128/256 (1/2) and thus sets the trail's length.
+            leds[ringPosition] = CRGB::White;    //setHue: variable to set the LEDs colour
+            ringPosition++;    //Shifts all LEDs one step in the currently active direction    
+            if (ringPosition == NUM_LEDS) ringPosition = 1;    //If one end is reached, reset the position to loop around
+            vTaskDelay(pdMS_TO_TICKS(40));
+        } else {
+            ringPosition++;
+            if(ringPosition > 40) ledRun = false;
+            if (ringRun == 0) fadeToBlackBy(leds, NUM_LEDS, 16); 
+            else fadeToBlackBy(leds, NUM_LEDS, 32);
+            vTaskDelay(pdMS_TO_TICKS(20));
+        }
+        FastLED.show();    //Finally, send the data to the LEDs
+    } else {
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
   }
-  FastLED.show();    //Finally, send the data to the LEDs
 }
 
 void InitLED() {
@@ -36,8 +46,19 @@ void InitLED() {
 
     // set master brightness control
     FastLED.setBrightness(BRIGHTNESS);
-    ringTimer = xTimerCreate("LEDRing", pdMS_TO_TICKS(40), pdTRUE, &ringTimer, &LEDRing);
+    ledRun = false;
     FastLED.show();
+}
+
+void StartLED() {
+        xTaskCreatePinnedToCore(
+                   ledTask,   /* Task function. */
+                   "LEDTask",     /* name of task. */
+                   10000,       /* Stack size of task */
+                   NULL,        /* parameter of the task */
+                   5,           /* priority of the task */
+                   &LedTask,      /* Task handle to keep track of created task */
+                   1);          /* pin task to core 1 */
 }
 
 void StartLEDRing() {
@@ -45,9 +66,9 @@ void StartLEDRing() {
     //     leds[i] = CRGB::Blue;
     // }
     // FastLED.show();
-    ringPosition = 0;
+    ringPosition = 1;
     ringRun = 1;
-    if(!xTimerIsTimerActive(ringTimer)) xTimerStart(ringTimer, pdMS_TO_TICKS(50));
+    ledRun = true;
 }
 
 void StopLEDRing() {
@@ -57,7 +78,7 @@ void StopLEDRing() {
     // FastLED.show();
     ringPosition = 0;
     ringRun = 0;
-    if(!xTimerIsTimerActive(ringTimer)) xTimerStart(ringTimer, pdMS_TO_TICKS(50));
+    ledRun = true;
 }
 
 void ErrorLED() {
@@ -67,7 +88,7 @@ void ErrorLED() {
     FastLED.show();
     ringPosition = 0;
     ringRun = 3;
-    if(!xTimerIsTimerActive(ringTimer)) xTimerStart(ringTimer, pdMS_TO_TICKS(50));
+    ledRun = true;
 }
 
 void ErrorPermanentLED() {
@@ -84,5 +105,5 @@ void SuccessLED() {
     FastLED.show();
     ringPosition = 0;
     ringRun = 2;
-    if(!xTimerIsTimerActive(ringTimer)) xTimerStart(ringTimer, pdMS_TO_TICKS(50));
+    ledRun = true;
 }

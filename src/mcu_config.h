@@ -31,8 +31,8 @@
 #define LED_DATA_PIN  7
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
-#define NUM_LEDS    8
-#define BRIGHTNESS  200
+#define NUM_LEDS    7
+#define BRIGHTNESS  255
 
 // WiFi
 #define WIFI_SSID "MOWMeOW"

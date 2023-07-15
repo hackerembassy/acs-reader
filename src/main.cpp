@@ -30,7 +30,7 @@ void Start125KHz() {
 
 void StartNFC() {
   xTaskCreatePinnedToCore(MainNFCTask, 
-      "nfc_task", 10000, nullptr,      
+      "nfc_task", 100000, nullptr,      
       10, &nfc_task, 0);        
 }
 
@@ -57,6 +57,7 @@ void setup() {
   if(okNFC) {
     Beep(kStartupBeeps, sizeof(kStartupBeeps) / sizeof(kStartupBeeps[0]));
     StartNFC();
+    StartLED();
   } else {
     StartBeep();
     ErrorPermanentLED();
