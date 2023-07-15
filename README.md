@@ -1,6 +1,7 @@
 # acs-reader
 
-Hacker Embassy ACS NFC/EMV/RFID reader based on ESP32-C3 and PN532
+Hacker Embassy ACS NFC/EMV/RFID reader based on ESP32-C3 and PN532.
+
 forked from B4CKSP4CE
 
 Allows to:
