@@ -3,7 +3,9 @@
 #include "../utils/debug.h"
 #include "../utils/output.h"
 #include "../utils/beeper.h"
+#include "../utils/led.h"
 #include "tlv/parser.h"
+#include "mqtt.h"
 
 #include <Wire.h>
 #include <Adafruit_PN532.h>
@@ -29,22 +31,26 @@
 #define EMVCO_MF_DESFIRE 0x03
 #define EMVCO_MF_CLASSIC_DESFIRE 0x04
 
+
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RST);
 
-void InitNFC()
+bool InitNFC()
 {
     Wire.setPins(PN532_SDA, PN532_SCL);
     nfc.begin();
 
     if (!nfc.getFirmwareVersion())
     {
-        DEBUG_PRINT("PN532 Connection Failed\n");
-        while (1)
-            ; // halt
+        StartBeep();
+        DEBUG_PRINT("PN532 error\n");
+        return false;
     }
 
     nfc.setPassiveActivationRetries(0xFF);
+    //nfc.setRFCfg(0x7F);
+    //nfc.setPassiveActivationRetries(0x01);
     nfc.SAMConfig();
+    return true;
 }
 
 uint8_t GetEMVCoType(uint8_t sak, uint16_t atqa)
@@ -159,6 +165,7 @@ void OutputHexData(const char* type, const uint8_t *buffer, uint16_t size)
         snprintf(result_buffer + i * 2, 3, "%02X", buffer[i]);
     }
     OutputReadID(type, result_buffer);
+    PublishToMQTT(type, result_buffer);
 }
 
 void OutputPan(const char* type, const uint8_t *buffer, uint16_t size)
@@ -171,6 +178,7 @@ void OutputPan(const char* type, const uint8_t *buffer, uint16_t size)
         snprintf(result_buffer + i, 2, "%c", buffer[i]);
     }
     OutputReadID(type, result_buffer);
+    PublishToMQTT(type, result_buffer);
 }
 
 bool EMVGetAID(uint8_t *aid, uint8_t *aid_length)
@@ -181,10 +189,14 @@ bool EMVGetAID(uint8_t *aid, uint8_t *aid_length)
     // Read PPSE
     // Header: 0x00 0xA4 0x04 0x00, Data: 2PAY.SYS.DDF01
     uint8_t apdu[] = {0x00, 0xA4, 0x04, 0x00, 0x0e, 0x32, 0x50, 0x41, 0x59, 0x2e, 0x53, 0x59, 0x53, 0x2e, 0x44, 0x44, 0x46, 0x30, 0x31, 0x00};
+
+    DEBUG_PRINT("EXCH... ");
+    unsigned long tme = millis();
     if (!nfc.inDataExchange(apdu, sizeof(apdu), ber_buffer, &ber_length))
     {
         return false;
     }
+    DEBUG_PRINT("! %d\n", millis() - tme);
     HexDump("AID_PACKET", ber_buffer, ber_length);
 
     Parser tlv_parser(ber_buffer, ber_length);
@@ -259,10 +271,13 @@ bool EMVGetPDOLAnswer(uint8_t *aid, uint16_t aid_length, uint8_t *pdol_answer, u
     memcpy(apdu + 5, aid, aid_length);
     apdu[5 + aid_length] = 0;
 
+    DEBUG_PRINT("EXCH... ");
+    unsigned long tme = millis();
     if (!nfc.inDataExchange(apdu, 5 + aid_length + 1, ber_buffer, &ber_length))
     {
         return false;
     }
+    DEBUG_PRINT("! %d\n", millis() - tme);
 
     HexDump("PDOL_PACKET", ber_buffer, ber_length);
 
@@ -332,10 +347,14 @@ bool EMVGetDataByPDOL(uint8_t *pdol, uint16_t pdol_length, uint8_t *data, uint8_
 
     HexDump("PDOL_OUT", apdu, 8 + pdol_length);
 
+    DEBUG_PRINT("EXCH... ");
+    unsigned long tme = millis();
     if (!nfc.inDataExchange(apdu, 8 + pdol_length, ber_buffer, &ber_length))
     {
         return false;
     }
+
+    DEBUG_PRINT("! %d\n", millis() - tme);
 
     memcpy(data, ber_buffer, ber_length);
     *data_length = ber_length;
@@ -564,10 +583,13 @@ bool EMVReadRecord(uint8_t sfi, uint8_t record_id, uint8_t* record_data, uint8_t
 
     uint8_t apdu[5] = {0x00, 0xB2, record_id, sfi_param, 0x00};
 
+    DEBUG_PRINT("EXCH... ");
+    unsigned long tme = millis();
     if (!nfc.inDataExchange(apdu, sizeof(apdu), record_data, record_length))
     {
         return false;
     }
+    DEBUG_PRINT("! %d\n", millis() - tme);
 
     return true;
 }
@@ -604,6 +626,7 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
     uint8_t aid_length;
     if (!EMVGetAID(aid, &aid_length))
     {
+        DEBUG_PRINT("Failed to get AID\n");
         return EMVCO_READ_FAIL;
     }
 
@@ -613,6 +636,7 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
     uint8_t pdol_answer_length;
     if (!EMVGetPDOLAnswer(aid, aid_length, pdol_answer, &pdol_answer_length))
     {
+        DEBUG_PRINT("Failed to get PDOL Answer\n");
         return EMVCO_READ_FAIL;
     }
 
@@ -626,6 +650,7 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
     uint8_t pdol_length;
     if (!EMVGetPDOL(pdol_answer, pdol_answer_length, pdol, &pdol_length))
     {
+        DEBUG_PRINT("Failed to get PDOL\n");
         return EMVCO_READ_FAIL;
     }
 
@@ -644,6 +669,7 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
 
     if (!EMVGetDataByPDOL(pdol_out, pdol_out_length, data, &data_length))
     {
+        DEBUG_PRINT("Failed to get data by PDOL\n");
         return EMVCO_READ_FAIL;
     }
 
@@ -660,6 +686,7 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
 
     if (!EMVGetAFLFromData(data, data_length, afl, &afl_length))
     {
+        DEBUG_PRINT("Failed to get AFL from data\n");
         return EMVCO_READ_FAIL;
     }
 
@@ -667,6 +694,7 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
 
     if (!EMVGetPanFromAFL(afl, afl_length, pan, pan_length))
     {
+        DEBUG_PRINT("Failed to get PAN from AFL\n");
         return EMVCO_READ_FAIL;
     }
 
@@ -675,8 +703,9 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
     return EMVCO_READ_OK;
 }
 
-const uint32_t success_beeps[] = {100};
-const uint32_t emv_beeps[] = {0, 50, 75, 50, 75};
+const uint32_t success_beeps[] = {3000, 50};
+const uint32_t emv_beeps[] = {2000, 50, 0, 75, 2000, 50};
+const uint32_t fail_beeps[] = {1000, 200, 0, 200, 1000, 200};
 
 void HandleNFC()
 {
@@ -692,35 +721,43 @@ void HandleNFC()
         {
         case RFID_READ_NO_TAG:
             DEBUG_PRINT("No tag\n");
+            StopLEDRing();
             break;
         case RFID_READ_TIMED_OUT:
             DEBUG_PRINT("Timed out\n");
+            ErrorLED();
+            Beep(fail_beeps, 5);
             break;
         case RFID_READ_UID:
             HexDump("UID", uid, uid_length);
             OutputHexData("UID", uid, uid_length);
             Beep(success_beeps, sizeof(success_beeps) / sizeof(success_beeps[0]));
+            StopLEDRing();
             break;
         case RFID_READ_EMVCO:
             StartBeep();
+            StartLEDRing();
             uint8_t pan[255];
             uint8_t pan_length = 255;
             if (ReadEMVCoPAN(pan, &pan_length) == EMVCO_READ_OK) {
                 DEBUG_PRINT("Got EMV PAN: %s\n", pan);
                 OutputPan("PAN", pan, pan_length);
                 StopBeep();
-                Beep(emv_beeps, 5);
+                SuccessLED();
+                Beep(emv_beeps, 6);
             } else {
                 DEBUG_PRINT("Failed to EMV\n");
                 OutputHexData("UID", uid, uid_length);
                 StopBeep();
+                ErrorLED();
+                Beep(fail_beeps, 6);
             }
             break;
         }
 
         // Throttle card reads just a little bit, wait for target
         // being removed from field or cooldown to pass
-        while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uid_length, 500))
+        while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uid_length, 2000))
         {
         }
     }

@@ -68,7 +68,7 @@ byte pn532response_firmwarevers[] = {0x00, 0x00, 0xFF, 0x06, 0xFA, 0xD5};
 // Uncomment these lines to enable debug output for PN532(SPI) and/or MIFARE
 // related code
 
-// #define PN532DEBUG
+#define PN532DEBUG
 // #define MIFAREDEBUG
 
 // If using Native Port on Arduino Zero or Due define as SerialUSB
@@ -485,6 +485,33 @@ bool Adafruit_PN532::setPassiveActivationRetries(uint8_t maxRetries) {
 #ifdef MIFAREDEBUG
   PN532DEBUGPRINT.print(F("Setting MxRtyPassiveActivation to "));
   PN532DEBUGPRINT.print(maxRetries, DEC);
+  PN532DEBUGPRINT.println(F(" "));
+#endif
+
+  if (!sendCommandCheckAck(pn532_packetbuffer, 5))
+    return 0x0; // no ACK
+
+  return 1;
+}
+
+bool Adafruit_PN532::setRFCfg(uint8_t rfCfg) {
+  pn532_packetbuffer[0]  = PN532_COMMAND_RFCONFIGURATION;
+  pn532_packetbuffer[0]  = 0x0A;  // Config item 10 (Analog settings for the baudrate 106 kbps type A)
+  pn532_packetbuffer[2]  = rfCfg; // CIU_RFCfg (default = 0x59)
+  pn532_packetbuffer[3]  = 0xF4;  // CIU_GsNOn (default = 0xF4)
+  pn532_packetbuffer[4]  = 0x3F;  // CIU_CWGsP (default = 0x3F)
+  pn532_packetbuffer[5]  = 0x11;  // CIU_ModGsP (default = 0x11)
+  pn532_packetbuffer[6]  = 0x4D;  // CIU_Demod when own RF is On (default = 0x4D)
+  pn532_packetbuffer[7]  = 0x85;  // CIU_RxThreshold (default = 0x85)
+  pn532_packetbuffer[8]  = 0x61;  // CIU_Demod when own RF is Off (default = 0x61)
+  pn532_packetbuffer[9]  = 0x6F;  // CIU_GsNOff (default = 0x6F)
+  pn532_packetbuffer[10] = 0x26;  // CIU_ModWidth (default = 0x26)
+  pn532_packetbuffer[11] = 0x62;  // CIU_MifNFC (default = 0x62)
+  pn532_packetbuffer[12] = 0x87;  // CIU_TxBitPhase (default = 0x87)
+
+#ifdef MIFAREDEBUG
+  PN532DEBUGPRINT.print(F("Setting RFCfg to "));
+  PN532DEBUGPRINT.print(rfCfg, HEX);
   PN532DEBUGPRINT.println(F(" "));
 #endif
 
@@ -1579,7 +1606,7 @@ void Adafruit_PN532::readdata(uint8_t *buff, uint8_t n) {
     // Discard the leading 0x01
     i2c_recv();
     for (uint8_t i = 0; i < n; i++) {
-      delay(1);
+      //delay(1);
       buff[i] = i2c_recv();
 #ifdef PN532DEBUG
       PN532DEBUGPRINT.print(F(" 0x"));

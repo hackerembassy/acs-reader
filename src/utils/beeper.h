@@ -1,5 +1,5 @@
-#ifndef UTILS_BEEPER_H_
-#define UTILS_BEEPER_H_
+#ifndef UTILS_LED_H_
+#define UTILS_LED_H_
 
 #include <Arduino.h>
 #include <cstdint>

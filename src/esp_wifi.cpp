@@ -4,6 +4,7 @@
 #include "mcu_config.h"
 #include "utils/debug.h"
 #include "arduino_ota.h"
+#include "mqtt.h"
 
 TimerHandle_t wifi_reconnect_timer;
 
@@ -24,10 +25,12 @@ void WiFiEvent(WiFiEvent_t event)
         StartArduinoOTA();
         DEBUG_PRINT("OTA server has been started\n");
         xTimerStop(wifi_reconnect_timer, 0);
+        StartMQTT();
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
         DEBUG_PRINT("WiFi lost connection\n");
         StopArduinoOTA();
+        StopMQTT();
         xTimerStart(wifi_reconnect_timer, 0);
         break;
     }
@@ -36,7 +39,7 @@ void WiFiEvent(WiFiEvent_t event)
 void InitWiFi()
 {
     WiFi.mode(WIFI_STA);
-
+    WiFi.setHostname(OTA_HOSTNAME);
     wifi_reconnect_timer = xTimerCreate("wifi_timer", pdMS_TO_TICKS(2000), pdFALSE, nullptr, ConnectToWiFi);
     WiFi.onEvent(WiFiEvent);
 }

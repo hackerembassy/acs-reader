@@ -4,17 +4,17 @@
 #include "secrets.h"
 
 // Debug
-#define DEBUG_ENABLED
+//#define DEBUG_ENABLED
 
 // PN532 pins
-#define PN532_IRQ 4
-#define PN532_RST 5 // Must be connected to RSTPDN pin, not RSTO!
-#define PN532_SDA 3
-#define PN532_SCL 2
+#define PN532_IRQ 6
+#define PN532_RST 8 // Must be connected to RSTPDN pin, not RSTO!
+#define PN532_SDA 5
+#define PN532_SCL 4
 
 // RDM6300 pins
 #define RDM6300_SERIAL Serial1
-#define RDM6300_RX 10
+#define RDM6300_RX 11
 
 // Debug serial
 #define DEBUG_SERIAL Serial
@@ -24,16 +24,27 @@
 #define OUTPUT_SERIAL_SPEED 115200
 
 // Beeper
-#define BEEPER_GND 16
-#define BEEPER_VCC 35
+#define BEEPER_GND 3
+#define BEEPER_VCC 10
+
+// LED
+#define LED_DATA_PIN  7
+#define LED_TYPE    WS2812B
+#define COLOR_ORDER GRB
+#define NUM_LEDS    8
+#define BRIGHTNESS  200
 
 // WiFi
-#define WIFI_SSID "B4CK"
+#define WIFI_SSID "MOWMeOW"
 #define WIFI_PASSWORD SECRET_WIFI_PASSWORD
 
 // WiFi
 #define OTA_HOSTNAME "acs-reader"
 #define OTA_PASSWORD SECRET_OTA_PASSWORD
 #define OTA_PORT 3232
+
+#define MQTT_HOST "minimi.lan"
+#define MQTT_USERNAME "acs-reader"
+#define MQTT_TOPIC "acs"
 
 #endif
