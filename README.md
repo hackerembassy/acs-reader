@@ -1,11 +1,11 @@
 # acs-reader
 
-B4CKSP4CE ACS NFC/EMV/RFID reader based on ESP32(S2), PN532 and RDM6300
+Hacker Embassy ACS NFC/EMV/RFID reader based on ESP32-C3 and PN532
+forked from B4CKSP4CE
 
 Allows to:
 - Read UIDs from NFC tags
 - Read PANs from EMVCo cards (including VISA, MasterCard, MIR)
-- Read UIDs from RFID tags (deperecated and not used for now)
 
 To build the project you also require to create `src/secrets.h` with defines for:
 ```c
