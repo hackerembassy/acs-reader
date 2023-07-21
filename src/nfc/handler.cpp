@@ -148,6 +148,7 @@ uint8_t ReadAndClassifyTarget(uint8_t *uid_buffer, uint8_t *uid_length)
 void HexDump(const char *preamble, const uint8_t *buffer, uint16_t size)
 {
     DEBUG_PRINT("%s: ", preamble);
+    DEBUG_PRINT("size:%u ", size);
     for (uint16_t i = 0; i < size; i++)
     {
         DEBUG_PRINT("%02x", buffer[i]);
@@ -622,6 +623,7 @@ bool EMVGetPanFromAFL(uint8_t *afl, uint8_t afl_length, uint8_t *pan, uint8_t *p
 
 uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
 {
+    heap_caps_check_integrity_all(true);
     uint8_t aid[255] = {};
     uint8_t aid_length;
     if (!EMVGetAID(aid, &aid_length))
@@ -629,6 +631,7 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
         DEBUG_PRINT("Failed to get AID\n");
         return EMVCO_READ_FAIL;
     }
+    heap_caps_check_integrity_all(true);
 
     HexDump("AID", aid, aid_length);
 
@@ -639,12 +642,14 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
         DEBUG_PRINT("Failed to get PDOL Answer\n");
         return EMVCO_READ_FAIL;
     }
+    heap_caps_check_integrity_all(true);
 
     if (EMVGetPanFromData(pdol_answer, pdol_answer_length, pan, pan_length))
     {
         HexDump("PAN", pan, *pan_length);
         return EMVCO_READ_OK;
     }
+    heap_caps_check_integrity_all(true);
 
     uint8_t pdol[255] = {};
     uint8_t pdol_length;
@@ -653,8 +658,9 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
         DEBUG_PRINT("Failed to get PDOL\n");
         return EMVCO_READ_FAIL;
     }
-
     HexDump("PDOL", pdol, pdol_length);
+
+    heap_caps_check_integrity_all(true);
 
     uint8_t pdol_out[255] = {};
     uint8_t pdol_out_length;
@@ -663,6 +669,8 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
         DEBUG_PRINT("Failed to generate fake PDOL\n");
         return EMVCO_READ_FAIL;
     }
+
+    heap_caps_check_integrity_all(true);
 
     uint8_t data[256] = {};
     uint8_t data_length;
@@ -675,15 +683,19 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
 
     HexDump("DATA", data, data_length);
 
+    heap_caps_check_integrity_all(true);
+
     if (EMVGetPanFromData(data, data_length, pan, pan_length))
     {
         HexDump("PAN", pan, *pan_length);
         return EMVCO_READ_OK;
     }
 
+    heap_caps_check_integrity_all(true);
+
     uint8_t afl[256] = {};
     uint8_t afl_length;
-
+    
     if (!EMVGetAFLFromData(data, data_length, afl, &afl_length))
     {
         DEBUG_PRINT("Failed to get AFL from data\n");
@@ -691,6 +703,8 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
     }
 
     HexDump("AFL", afl, afl_length);
+
+    heap_caps_check_integrity_all(true);
 
     if (!EMVGetPanFromAFL(afl, afl_length, pan, pan_length))
     {
@@ -700,11 +714,14 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
 
     HexDump("PAN", pan, *pan_length);
 
+    heap_caps_check_integrity_all(true);
+
+
     return EMVCO_READ_OK;
 }
 
 const uint32_t success_beeps[] = {3000, 50};
-const uint32_t emv_beeps[] = {2000, 50, 0, 75, 2000, 50};
+const uint32_t emv_beeps[] = {4000, 50, 0, 75, 4000, 50};
 const uint32_t fail_beeps[] = {1000, 200, 0, 200, 1000, 200};
 
 void HandleNFC()
@@ -735,30 +752,30 @@ void HandleNFC()
             StopLEDRing();
             break;
         case RFID_READ_EMVCO:
-            StartBeep();
+            //StartBeep();
             StartLEDRing();
             uint8_t pan[255];
             uint8_t pan_length = 255;
             if (ReadEMVCoPAN(pan, &pan_length) == EMVCO_READ_OK) {
                 DEBUG_PRINT("Got EMV PAN: %s\n", pan);
                 OutputPan("PAN", pan, pan_length);
-                StopBeep();
+                //StopBeep();
                 SuccessLED();
                 Beep(emv_beeps, 6);
             } else {
                 DEBUG_PRINT("Failed to EMV\n");
                 OutputHexData("UID", uid, uid_length);
-                StopBeep();
+                //StopBeep();
                 ErrorLED();
                 Beep(fail_beeps, 6);
             }
             break;
-        }
 
         // Throttle card reads just a little bit, wait for target
         // being removed from field or cooldown to pass
         while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uid_length, 2000))
         {
         }
+    }
     }
 }

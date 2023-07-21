@@ -3,11 +3,11 @@
 #include "utils/debug.h"
 #include "WiFi.h"
 
-#include <espMqttClientAsync.h>
+#include <AsyncMqttClient.h>
 
 TimerHandle_t mqttReconnectTimer;
 
-espMqttClientAsync mqttClient;
+AsyncMqttClient mqttClient;
 
 void PublishToMQTT(const char* type, const char* data) {
     char *topic;
@@ -25,11 +25,9 @@ void StartMQTT() {
 
 void onMqttConnect(bool sessionPresent) {
     DEBUG_PRINT("Connected to MQTT.\n");
-    //if(okNFC) PublishToMQTT("status", "NFC OK");
-    //else PublishToMQTT("status", "NFC fail");
 }
 
-void onMqttDisconnect(espMqttClientTypes::DisconnectReason reason) {
+void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
   DEBUG_PRINT("Disconnected from MQTT.\n");
 
   if (WiFi.isConnected()) {

@@ -31,10 +31,10 @@ void Start125KHz() {
 void StartNFC() {
   xTaskCreatePinnedToCore(MainNFCTask, 
       "nfc_task", 100000, nullptr,      
-      10, &nfc_task, 0);        
+      5, &nfc_task, 0);        
 }
 
-const uint32_t kStartupBeeps[] = {1000, 100, 0, 100, 1000, 100};
+const uint32_t kStartupBeeps[] = {4000, 100, 0, 100, 4000, 100};
 
 void StartupBeepTask(void*) {
   
@@ -49,9 +49,9 @@ void setup() {
   InitOutput();
   InitLED();
   bool okNFC = InitNFC();
+  StartWiFi();
   InitMQTT();
 
-  StartWiFi();
 
   // Start125KHz();
   if(okNFC) {

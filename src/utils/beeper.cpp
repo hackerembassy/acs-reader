@@ -4,33 +4,33 @@
 #include <Arduino.h>
 
 void InitBeeper() {
-   //pinMode(BEEPER_GND, OUTPUT);
-   //pinMode(BEEPER_VCC, OUTPUT);
-   //digitalWrite(BEEPER_VCC, HIGH);
+   ledcSetup(0, 8000, 12);
+   
+   pinMode(BEEPER_VCC, OUTPUT);
+   digitalWrite(BEEPER_VCC, LOW);
 }
 
 void Beep(const uint32_t* time, uint8_t count) {
-    //pinMode(BEEPER_VCC, OUTPUT);
-    //uint8_t state = HIGH;
+    ledcAttachPin(BEEPER_VCC, 0);
     for (uint8_t i = 0; i < count; i = i + 2) {
-        //if(time[i] > 0) tone(BEEPER_VCC, time[i]);
-        //else noTone(BEEPER_VCC);
+        if(time[i] > 0) ledcWriteTone(0, time[i]);
+        else ledcWrite(0, 0);
         delay(time[i+1]);
     }
-    //noTone(BEEPER_VCC);
-    //ledcDetachPin(BEEPER_VCC);
-    //pinMode(BEEPER_VCC, INPUT);
-    //digitalWrite(BEEPER_VCC, HIGH);
+    ledcWrite(0, 0);
+    ledcDetachPin(BEEPER_VCC);
+    digitalWrite(BEEPER_VCC, LOW);
+    pinMode(BEEPER_VCC, INPUT);
 }
 
 void StartBeep() {
-    //pinMode(BEEPER_VCC, OUTPUT);
-    //tone(BEEPER_VCC, 40);
+    ledcAttachPin(BEEPER_VCC, 0);
+    ledcWriteTone(0, 40);
 }
 
 void StopBeep() {
-    //noTone(BEEPER_VCC);
-    //ledcDetachPin(BEEPER_VCC);
-    //pinMode(BEEPER_VCC, INPUT);
-    //digitalWrite(BEEPER_VCC, HIGH);
+    ledcWrite(0, 0);
+    ledcDetachPin(BEEPER_VCC);
+    digitalWrite(BEEPER_VCC, LOW);
+    pinMode(BEEPER_VCC, INPUT);
 }

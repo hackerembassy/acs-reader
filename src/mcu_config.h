@@ -20,7 +20,7 @@
 #define DEBUG_SERIAL Serial
 
 // Output serial
-#define OUTPUT_SERIAL Serial1
+#define OUTPUT_SERIAL Serial
 #define OUTPUT_SERIAL_SPEED 115200
 
 // Beeper
