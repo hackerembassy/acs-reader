@@ -4,8 +4,7 @@
 #include "secrets.h"
 
 // Debug
-//#define DEBUG_ENABLED
-
+#define DEBUG_ENABLED
 // PN532 pins
 #define PN532_IRQ 6
 #define PN532_RST 8 // Must be connected to RSTPDN pin, not RSTO!

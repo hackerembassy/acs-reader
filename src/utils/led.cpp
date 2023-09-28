@@ -1,5 +1,9 @@
 #include "led.h"
 
+#define FASTLED_RMT_MAX_CHANNELS 1
+#define FASTLED_ESP32_FLASH_LOCK 1
+// #define FASTLED_RMT_BUILTIN_DRIVER 1
+
 #include "../mcu_config.h"
 #include "debug.h"
 #include <Arduino.h>

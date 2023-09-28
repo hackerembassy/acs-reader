@@ -9,6 +9,11 @@
 
 #include <Wire.h>
 #include <Adafruit_PN532.h>
+#include <esp_heap_trace.h>
+
+// #define NUM_RECORDS 100
+// static heap_trace_record_t trace_record[NUM_RECORDS];
+
 
 #define RFID_READ_NO_TAG 0x00
 #define RFID_READ_TIMED_OUT 0x01
@@ -34,22 +39,38 @@
 
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RST);
 
+auto const NFCMutex = xSemaphoreCreateRecursiveMutex();
+
 bool InitNFC()
-{
+{    
+
+    while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
+
     Wire.setPins(PN532_SDA, PN532_SCL);
     nfc.begin();
 
-    if (!nfc.getFirmwareVersion())
-    {
-        StartBeep();
-        DEBUG_PRINT("PN532 error\n");
+    // if (!nfc.getFirmwareVersion())
+    // {
+    //     StartBeep();
+    //     DEBUG_PRINT("PN532 error\n");
+    //     return false;
+    // }
+    uint32_t versiondata = nfc.getFirmwareVersion();
+    if (! versiondata) {
+        DEBUG_PRINT("Didn't find PN53x board");
         return false;
+        // while (1); // halt
     }
+    // Got ok data, print it out!
+    DEBUG_PRINT("Found chip PN5 %x\n",(versiondata>>24) & 0xFF);
 
-    nfc.setPassiveActivationRetries(0xFF);
+    // nfc.setPassiveActivationRetries(0xFF);
     //nfc.setRFCfg(0x7F);
-    //nfc.setPassiveActivationRetries(0x01);
+    // nfc.setPassiveActivationRetries(0x01);
     nfc.SAMConfig();
+    
+    xSemaphoreGiveRecursive(NFCMutex);
+
     return true;
 }
 
@@ -94,47 +115,43 @@ uint8_t GetEMVCoType(uint8_t sak, uint16_t atqa)
 
 uint8_t ReadAndClassifyTarget(uint8_t *uid_buffer, uint8_t *uid_length)
 {
-    byte buffer[64];
-    buffer[0] = PN532_COMMAND_INLISTPASSIVETARGET;
-    buffer[1] = 1; // Use only first detected target
-    buffer[2] = PN532_MIFARE_ISO14443A;
+    // byte buffer[64];
+    // buffer[0] = PN532_COMMAND_INLISTPASSIVETARGET;
+    // buffer[1] = 1; // Use only first detected target
+    // buffer[2] = PN532_MIFARE_ISO14443A;
 
-    // Send passive targets inlist command
-    if (!nfc.sendCommandCheckAck(buffer, 3, 0))
-    {
-        return RFID_READ_TIMED_OUT;
-    }
+    // while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
 
+    // // Send passive targets inlist command
+    // if (!nfc.sendCommandCheckAck(buffer, 3, 0))
+    // {
+    //     return RFID_READ_TIMED_OUT;
+    // }
+    bool success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid_buffer, uid_length);
     // Waiting for the target detection response
-    if (!nfc.waitready(0))
-    {
-        return RFID_READ_TIMED_OUT;
-    }
+    
+    // if (!nfc.waitready(0))
+    // {
+    //     return RFID_READ_TIMED_OUT;
+    // }
 
-    // Reading response to buffer
-    nfc.readdata(buffer, 20);
+    // // Reading response to buffer
+    // nfc.readdata(buffer, 20);
 
     // Check is any tags found
-    if (buffer[7] != 1)
+    if (!success)
     {
         return RFID_READ_NO_TAG;
     }
+    StartLEDRing();
 
-    // Read UID
-    *uid_length = buffer[12];
-    for (uint8_t i = 0; i < buffer[12]; i++)
-    {
-        uid_buffer[i] = buffer[13 + i];
-    }
+    nfc.inListPassiveTarget();
 
     // Parse ATQA, SAK & Inlisted Tag Tg
-    uint8_t sak = buffer[11];
-    uint16_t atqa = buffer[9];
-    atqa <<= 8;
-    atqa |= buffer[10];
-    nfc._inListedTag = buffer[8];
+    uint8_t sak = nfc.sak;
+    uint16_t atqa = nfc.atqa;
 
-    uint8_t emvco_support = GetEMVCoType(sak, atqa);
+    uint8_t emvco_support = GetEMVCoType(nfc.sak, nfc.atqa);
     if (emvco_support == EMVCO_UNSUPPORTED)
     {
         return RFID_READ_UID;
@@ -143,6 +160,7 @@ uint8_t ReadAndClassifyTarget(uint8_t *uid_buffer, uint8_t *uid_length)
     {
         return RFID_READ_EMVCO;
     }
+    xSemaphoreGive(NFCMutex);
 }
 
 void HexDump(const char *preamble, const uint8_t *buffer, uint16_t size)
@@ -186,6 +204,7 @@ bool EMVGetAID(uint8_t *aid, uint8_t *aid_length)
 {
     uint8_t ber_buffer[255];
     uint8_t ber_length = 255;
+    while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
 
     // Read PPSE
     // Header: 0x00 0xA4 0x04 0x00, Data: 2PAY.SYS.DDF01
@@ -249,6 +268,8 @@ bool EMVGetAID(uint8_t *aid, uint8_t *aid_length)
 
     memcpy(aid, aid_data.GetData(), aid_data.GetLength());
     *aid_length = aid_data.GetLength();
+
+    xSemaphoreGive(NFCMutex);
     return true;
 }
 
@@ -274,11 +295,13 @@ bool EMVGetPDOLAnswer(uint8_t *aid, uint16_t aid_length, uint8_t *pdol_answer, u
 
     DEBUG_PRINT("EXCH... ");
     unsigned long tme = millis();
+    while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
     if (!nfc.inDataExchange(apdu, 5 + aid_length + 1, ber_buffer, &ber_length))
     {
         return false;
     }
     DEBUG_PRINT("! %d\n", millis() - tme);
+    xSemaphoreGiveRecursive(NFCMutex);
 
     HexDump("PDOL_PACKET", ber_buffer, ber_length);
 
@@ -350,10 +373,12 @@ bool EMVGetDataByPDOL(uint8_t *pdol, uint16_t pdol_length, uint8_t *data, uint8_
 
     DEBUG_PRINT("EXCH... ");
     unsigned long tme = millis();
+    while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
     if (!nfc.inDataExchange(apdu, 8 + pdol_length, ber_buffer, &ber_length))
     {
         return false;
     }
+    xSemaphoreGiveRecursive(NFCMutex);
 
     DEBUG_PRINT("! %d\n", millis() - tme);
 
@@ -472,6 +497,7 @@ bool VerifyLuhn(uint8_t *raw_digits, uint8_t length)
 
 bool EMVGetPanFromData(uint8_t *data, uint8_t data_length, uint8_t *pan, uint8_t *pan_length)
 {
+    HexDump("DATAA", data, data_length);
     Parser tlv_parser(data, data_length);
     if (tlv_parser.IsNull())
     {
@@ -479,17 +505,22 @@ bool EMVGetPanFromData(uint8_t *data, uint8_t data_length, uint8_t *pan, uint8_t
         return false;
     }
 
+    heap_caps_check_integrity_all(true);
+
     for (uint8_t i = 0; i < sizeof(pan_paths) / sizeof(PANPath); i++)
     {
+        heap_caps_check_integrity_all(true);
         Parser current_parser = tlv_parser;
         for (uint8_t j = 0; j < pan_paths[i].length; j++)
         {
+            heap_caps_check_integrity_all(true);
             current_parser = current_parser.GetObject(pan_paths[i].tags[j]);
             if (current_parser.IsNull())
             {
                 break;
             }
         }
+        heap_caps_check_integrity_all(true);
         if (current_parser.IsNull())
         {
             continue;
@@ -529,6 +560,7 @@ bool EMVGetPanFromData(uint8_t *data, uint8_t data_length, uint8_t *pan, uint8_t
                 current_length = 0;
                 break;
             }
+            heap_caps_check_integrity_all(true);
         }
 
         if (current_length < 13 || current_length > 19)
@@ -545,6 +577,7 @@ bool EMVGetPanFromData(uint8_t *data, uint8_t data_length, uint8_t *pan, uint8_t
                 pan[j] = digits[j] + '0';
             }
             *pan_length = current_length;
+            heap_caps_check_integrity_all(true);
             return true;
         } else {
             DEBUG_PRINT("Luhn failed\n");
@@ -584,13 +617,19 @@ bool EMVReadRecord(uint8_t sfi, uint8_t record_id, uint8_t* record_data, uint8_t
 
     uint8_t apdu[5] = {0x00, 0xB2, record_id, sfi_param, 0x00};
 
+    while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
+
+    HexDump("APDU", apdu, sizeof(apdu));
     DEBUG_PRINT("EXCH... ");
     unsigned long tme = millis();
+
     if (!nfc.inDataExchange(apdu, sizeof(apdu), record_data, record_length))
     {
         return false;
     }
+    
     DEBUG_PRINT("! %d\n", millis() - tme);
+    xSemaphoreGiveRecursive(NFCMutex);
 
     return true;
 }
@@ -602,18 +641,23 @@ bool EMVGetPanFromAFL(uint8_t *afl, uint8_t afl_length, uint8_t *pan, uint8_t *p
         uint8_t sfi = afl[i] >> 3;
         uint8_t record_start = afl[i + 1];
         uint8_t record_end = afl[i + 2];
+        heap_caps_check_integrity_all(true);
         for (uint8_t j = record_start; j <= record_end; j++) 
         {
             uint8_t record[255];
             uint8_t record_length = 255;
+            heap_caps_check_integrity_all(true);
             if (!EMVReadRecord(sfi, j, record, &record_length)) {
                 continue;
             }
+
+            heap_caps_dump_all;
 
             DEBUG_PRINT("Record %d, %d: ", sfi, j);
             HexDump("RECORD", record, record_length);
 
             if (EMVGetPanFromData(record, record_length, pan, pan_length)) {
+                heap_caps_check_integrity_all(true);
                 return true;
             }
         }
@@ -693,7 +737,7 @@ uint8_t ReadEMVCoPAN(uint8_t* pan, uint8_t* pan_length)
 
     heap_caps_check_integrity_all(true);
 
-    uint8_t afl[256] = {};
+    uint8_t afl[512] = {};
     uint8_t afl_length;
     
     if (!EMVGetAFLFromData(data, data_length, afl, &afl_length))
@@ -726,13 +770,23 @@ const uint32_t fail_beeps[] = {1000, 200, 0, 200, 1000, 200};
 
 void HandleNFC()
 {
+    InitNFC();
     DEBUG_PRINT("NFC started on core %d\n", xPortGetCoreID());
 
+    uint8_t uid_length;
+    uint8_t uid[7];
     for (;;)
     {
-        uint8_t uid_length = 255;
-        uint8_t uid[255];
+        // nfc.wakeup();
         uint8_t read_status = ReadAndClassifyTarget(uid, &uid_length);
+        // bool success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uid_length);
+        // bool success = nfc.inListPassiveTarget();
+        // nfc.readDetectedPassiveTargetID(&uid_length, uid);
+        
+        // uint8_t read_status = 0;
+        // if (!success) continue;
+        // DEBUG_PRINT("READ done %d %d %d\n", uid_length, nfc.sak, nfc.atqa);
+        // nfc.PrintHex(uid, uid_length);
 
         switch (read_status)
         {
@@ -753,7 +807,6 @@ void HandleNFC()
             break;
         case RFID_READ_EMVCO:
             //StartBeep();
-            StartLEDRing();
             uint8_t pan[255];
             uint8_t pan_length = 255;
             if (ReadEMVCoPAN(pan, &pan_length) == EMVCO_READ_OK) {

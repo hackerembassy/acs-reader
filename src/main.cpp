@@ -34,7 +34,7 @@ void StartNFC() {
       5, &nfc_task, 0);        
 }
 
-const uint32_t kStartupBeeps[] = {4000, 100, 0, 100, 4000, 100};
+const uint32_t kStartupBeeps[] = {400, 100, 0, 100, 400, 100};
 
 void StartupBeepTask(void*) {
   
@@ -42,26 +42,27 @@ void StartupBeepTask(void*) {
 
 void setup() {
   InitDebug();
-  //Init125KHz();
+  // Init125KHz();
   InitWiFi();
   InitArduinoOTA();
   InitBeeper();
   InitOutput();
   InitLED();
-  bool okNFC = InitNFC();
+  // bool okNFC = InitNFC();
   StartWiFi();
   InitMQTT();
 
+  StartNFC();
+  StartLED();
+  Beep(kStartupBeeps, sizeof(kStartupBeeps) / sizeof(kStartupBeeps[0]));
 
   // Start125KHz();
-  if(okNFC) {
-    Beep(kStartupBeeps, sizeof(kStartupBeeps) / sizeof(kStartupBeeps[0]));
-    StartNFC();
-    StartLED();
-  } else {
-    StartBeep();
-    ErrorPermanentLED();
-  }
+  // if(okNFC) {
+  //   Beep(kStartupBeeps, sizeof(kStartupBeeps) / sizeof(kStartupBeeps[0]));
+  // } else {
+  //   StartBeep();
+  //   ErrorPermanentLED();
+  // }
 }
 
 void loop() {
