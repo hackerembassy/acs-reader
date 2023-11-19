@@ -138,12 +138,14 @@ uint8_t ReadAndClassifyTarget(uint8_t *uid_buffer, uint8_t *uid_length)
     // success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid_buffer, uid_length);
 
     //Send passive targets inlist command
+    // вот это почему-то не работает с Apple Pay. Но при этом, если сделать inlist перед readdetectedpassivetargetid,
+    // библиотека вешается, с I2C error -263 (timeout)
     if (!nfc.inListPassiveTarget()) {
         return RFID_READ_TIMED_OUT;
     }
     
     
-    // bool success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid_buffer, uid_length);
+    // bool success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid_buffer, uid_length, 100);
     
     // Waiting for the target detection response
     
@@ -804,7 +806,7 @@ void HandleNFC()
         if(!readerEnabled && millis() - lastRead > 2000) {
             DEBUG_PRINT("Starting card detection...");
             readerEnabled = true;
-            nfc.wakeup();
+            //nfc.wakeup();
             if(nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A)) cardDetected = true;
             DEBUG_PRINT(" ok.\n");
         }

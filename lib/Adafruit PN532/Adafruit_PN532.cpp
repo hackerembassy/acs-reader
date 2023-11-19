@@ -765,7 +765,7 @@ bool Adafruit_PN532::inListPassiveTarget() {
     return false;
   }
 
-  if (!waitready(30000)) {
+  if (!waitready(1000)) {
     return false;
   }
 
@@ -1576,12 +1576,12 @@ bool Adafruit_PN532::isready() {
     @param  timeout   Timeout before giving up
 */
 /**************************************************************************/
-bool Adafruit_PN532::waitready(uint16_t timeout) {
+bool Adafruit_PN532::waitready(uint16_t timeout = 200) {
   uint16_t timer = 0;
+  unsigned long msWaitStop = millis() + timeout;
   while (!isready()) {
     if (timeout != 0) {
-      timer += 10;
-      if (timer > timeout) {
+      if (millis() > msWaitStop) {
 #ifdef PN532DEBUG
         PN532DEBUGPRINT.println("TIMEOUT!");
 #endif
