@@ -75,7 +75,7 @@ byte pn532response_firmwarevers[] = {
 #define PN532DEBUGPRINT Serial ///< Fixed name for debug Serial instance
 //#define PN532DEBUGPRINT SerialUSB ///< Fixed name for debug Serial instance
 
-#define PN532_PACKBUFFSIZ 240                ///< Packet buffer size in bytes
+#define PN532_PACKBUFFSIZ 64                ///< Packet buffer size in bytes
 byte pn532_packetbuffer[PN532_PACKBUFFSIZ]; ///< Packet buffer used in various
                                             ///< transactions
 
@@ -627,8 +627,8 @@ bool Adafruit_PN532::readDetectedPassiveTargetID(uint8_t *uid,
   uint16_t sens_res = pn532_packetbuffer[9];
   sens_res <<= 8;
   sens_res |= pn532_packetbuffer[10];
-  atqa = sens_res;
   sak = pn532_packetbuffer[11];
+  atqa = sens_res;
 #ifdef MIFAREDEBUG
   PN532DEBUGPRINT.print(F("ATQA: 0x"));
   PN532DEBUGPRINT.println(sens_res, HEX);

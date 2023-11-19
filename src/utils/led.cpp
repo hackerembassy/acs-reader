@@ -31,7 +31,7 @@ void ledTask(void * pvParameters) {
             vTaskDelay(pdMS_TO_TICKS(40));
         } else {
             ringPosition++;
-            if(ringPosition > 40) ledRun = false;
+            if(ringPosition > 60) ledRun = false;
             if (ringRun == 0) fadeToBlackBy(leds, NUM_LEDS, 16); 
             else fadeToBlackBy(leds, NUM_LEDS, 32);
             vTaskDelay(pdMS_TO_TICKS(20));
@@ -102,9 +102,10 @@ void ErrorPermanentLED() {
     FastLED.show();
 }
 
-void SuccessLED() {
+void SuccessLED(uint8_t typeC) {
     for (uint8_t i = 0; i < NUM_LEDS; i++) {
-        leds[i] = CRGB::Green;
+        if(typeC == 0) leds[i] = CRGB::Green;
+        else if(typeC == 1) leds[i] = CRGB::Blue;
     }
     FastLED.show();
     ringPosition = 0;

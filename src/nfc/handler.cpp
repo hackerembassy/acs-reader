@@ -40,14 +40,17 @@
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RST);
 
 auto const NFCMutex = xSemaphoreCreateRecursiveMutex();
+bool needToReactivate = false;
 
 bool InitNFC()
 {    
 
-    while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
+   // while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
 
     Wire.setPins(PN532_SDA, PN532_SCL);
+    Wire.setClock(10000);
     nfc.begin();
+
 
     // if (!nfc.getFirmwareVersion())
     // {
@@ -64,12 +67,11 @@ bool InitNFC()
     // Got ok data, print it out!
     DEBUG_PRINT("Found chip PN5 %x\n",(versiondata>>24) & 0xFF);
 
-    // nfc.setPassiveActivationRetries(0xFF);
     //nfc.setRFCfg(0x7F);
-    // nfc.setPassiveActivationRetries(0x01);
+    //nfc.setPassiveActivationRetries(0x01);
+    //nfc.reset();
     nfc.SAMConfig();
-    
-    xSemaphoreGiveRecursive(NFCMutex);
+   // xSemaphoreGiveRecursive(NFCMutex);
 
     return true;
 }
@@ -78,7 +80,7 @@ uint8_t GetEMVCoType(uint8_t sak, uint16_t atqa)
 {
     DEBUG_PRINT("SAK: %02x, ATQA: %04x\n", sak, atqa);
     // TODO
-    return EMVCO_BASIC;
+    //return EMVCO_BASIC;
 
     // Any EMVCo-capable targets must have SAK equal to 0x20 or 0x28
     if (sak != 0x20 && sak != 0x28)
@@ -125,11 +127,28 @@ uint8_t ReadAndClassifyTarget(uint8_t *uid_buffer, uint8_t *uid_length)
     // // Send passive targets inlist command
     // if (!nfc.sendCommandCheckAck(buffer, 3, 0))
     // {
+    //     
+    // }
+
+    // if (!nfc.inListPassiveTarget()) {
     //     return RFID_READ_TIMED_OUT;
     // }
-    bool success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid_buffer, uid_length);
+
+    bool success = nfc.readDetectedPassiveTargetID(uid_buffer, uid_length);
+    // success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid_buffer, uid_length);
+
+    //Send passive targets inlist command
+    if (!nfc.inListPassiveTarget()) {
+        return RFID_READ_TIMED_OUT;
+    }
+    
+    
+    // bool success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid_buffer, uid_length);
+    
     // Waiting for the target detection response
     
+    
+
     // if (!nfc.waitready(0))
     // {
     //     return RFID_READ_TIMED_OUT;
@@ -145,7 +164,6 @@ uint8_t ReadAndClassifyTarget(uint8_t *uid_buffer, uint8_t *uid_length)
     }
     StartLEDRing();
 
-    nfc.inListPassiveTarget();
 
     // Parse ATQA, SAK & Inlisted Tag Tg
     uint8_t sak = nfc.sak;
@@ -160,7 +178,7 @@ uint8_t ReadAndClassifyTarget(uint8_t *uid_buffer, uint8_t *uid_length)
     {
         return RFID_READ_EMVCO;
     }
-    xSemaphoreGive(NFCMutex);
+   // xSemaphoreGive(NFCMutex);
 }
 
 void HexDump(const char *preamble, const uint8_t *buffer, uint16_t size)
@@ -204,7 +222,7 @@ bool EMVGetAID(uint8_t *aid, uint8_t *aid_length)
 {
     uint8_t ber_buffer[255];
     uint8_t ber_length = 255;
-    while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
+    //while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
 
     // Read PPSE
     // Header: 0x00 0xA4 0x04 0x00, Data: 2PAY.SYS.DDF01
@@ -263,13 +281,14 @@ bool EMVGetAID(uint8_t *aid, uint8_t *aid_length)
 
     if (aid_data.GetLength() > 255)
     {
+        DEBUG_PRINT("Failed Length > 255");
         return false;
     }
 
     memcpy(aid, aid_data.GetData(), aid_data.GetLength());
     *aid_length = aid_data.GetLength();
 
-    xSemaphoreGive(NFCMutex);
+    //xSemaphoreGive(NFCMutex);
     return true;
 }
 
@@ -282,6 +301,7 @@ bool EMVGetPDOLAnswer(uint8_t *aid, uint16_t aid_length, uint8_t *pdol_answer, u
     if (5 + aid_length + 1 > 255)
     {
         return false;
+        DEBUG_PRINT("meow\n aid length wrong\n");
     }
 
     // Select AID
@@ -295,13 +315,13 @@ bool EMVGetPDOLAnswer(uint8_t *aid, uint16_t aid_length, uint8_t *pdol_answer, u
 
     DEBUG_PRINT("EXCH... ");
     unsigned long tme = millis();
-    while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
+    //while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
     if (!nfc.inDataExchange(apdu, 5 + aid_length + 1, ber_buffer, &ber_length))
     {
         return false;
     }
     DEBUG_PRINT("! %d\n", millis() - tme);
-    xSemaphoreGiveRecursive(NFCMutex);
+    //xSemaphoreGiveRecursive(NFCMutex);
 
     HexDump("PDOL_PACKET", ber_buffer, ber_length);
 
@@ -373,12 +393,12 @@ bool EMVGetDataByPDOL(uint8_t *pdol, uint16_t pdol_length, uint8_t *data, uint8_
 
     DEBUG_PRINT("EXCH... ");
     unsigned long tme = millis();
-    while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
+   //while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
     if (!nfc.inDataExchange(apdu, 8 + pdol_length, ber_buffer, &ber_length))
     {
         return false;
     }
-    xSemaphoreGiveRecursive(NFCMutex);
+    //xSemaphoreGiveRecursive(NFCMutex);
 
     DEBUG_PRINT("! %d\n", millis() - tme);
 
@@ -617,7 +637,7 @@ bool EMVReadRecord(uint8_t sfi, uint8_t record_id, uint8_t* record_data, uint8_t
 
     uint8_t apdu[5] = {0x00, 0xB2, record_id, sfi_param, 0x00};
 
-    while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
+   // while (!xSemaphoreTakeRecursive(NFCMutex, 20000));
 
     HexDump("APDU", apdu, sizeof(apdu));
     DEBUG_PRINT("EXCH... ");
@@ -629,7 +649,7 @@ bool EMVReadRecord(uint8_t sfi, uint8_t record_id, uint8_t* record_data, uint8_t
     }
     
     DEBUG_PRINT("! %d\n", millis() - tme);
-    xSemaphoreGiveRecursive(NFCMutex);
+    //xSemaphoreGiveRecursive(NFCMutex);
 
     return true;
 }
@@ -770,65 +790,88 @@ const uint32_t fail_beeps[] = {1000, 200, 0, 200, 1000, 200};
 
 void HandleNFC()
 {
-    InitNFC();
+    //InitNFC();
     DEBUG_PRINT("NFC started on core %d\n", xPortGetCoreID());
 
     uint8_t uid_length;
     uint8_t uid[7];
+
+    bool readerEnabled = false;
+    bool cardDetected = false;
+    unsigned long lastRead;
     for (;;)
-    {
-        // nfc.wakeup();
-        uint8_t read_status = ReadAndClassifyTarget(uid, &uid_length);
-        // bool success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uid_length);
-        // bool success = nfc.inListPassiveTarget();
-        // nfc.readDetectedPassiveTargetID(&uid_length, uid);
-        
-        // uint8_t read_status = 0;
-        // if (!success) continue;
-        // DEBUG_PRINT("READ done %d %d %d\n", uid_length, nfc.sak, nfc.atqa);
-        // nfc.PrintHex(uid, uid_length);
-
-        switch (read_status)
-        {
-        case RFID_READ_NO_TAG:
-            DEBUG_PRINT("No tag\n");
-            StopLEDRing();
-            break;
-        case RFID_READ_TIMED_OUT:
-            DEBUG_PRINT("Timed out\n");
-            ErrorLED();
-            Beep(fail_beeps, 5);
-            break;
-        case RFID_READ_UID:
-            HexDump("UID", uid, uid_length);
-            OutputHexData("UID", uid, uid_length);
-            Beep(success_beeps, sizeof(success_beeps) / sizeof(success_beeps[0]));
-            StopLEDRing();
-            break;
-        case RFID_READ_EMVCO:
-            //StartBeep();
-            uint8_t pan[255];
-            uint8_t pan_length = 255;
-            if (ReadEMVCoPAN(pan, &pan_length) == EMVCO_READ_OK) {
-                DEBUG_PRINT("Got EMV PAN: %s\n", pan);
-                OutputPan("PAN", pan, pan_length);
-                //StopBeep();
-                SuccessLED();
-                Beep(emv_beeps, 6);
-            } else {
-                DEBUG_PRINT("Failed to EMV\n");
-                OutputHexData("UID", uid, uid_length);
-                //StopBeep();
-                ErrorLED();
-                Beep(fail_beeps, 6);
-            }
-            break;
-
-        // Throttle card reads just a little bit, wait for target
-        // being removed from field or cooldown to pass
-        while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uid_length, 2000))
-        {
+    {   
+        if(!readerEnabled && millis() - lastRead > 2000) {
+            DEBUG_PRINT("Starting card detection...");
+            readerEnabled = true;
+            nfc.wakeup();
+            if(nfc.startPassiveTargetIDDetection(PN532_MIFARE_ISO14443A)) cardDetected = true;
+            DEBUG_PRINT(" ok.\n");
         }
-    }
+
+        if(!digitalRead(PN532_IRQ) && readerEnabled) cardDetected = true;
+
+        //if(true) {
+        if(cardDetected) {
+            DEBUG_PRINT("<<< Found card >>>\n");
+            lastRead = millis();
+            cardDetected = false;
+            readerEnabled = false;
+            // if(!nfc.readDetectedPassiveTargetID(uid, &uid_length)) {
+            //     DEBUG_PRINT("Meh. Nothing.\n");
+            //     continue;
+            // }
+
+            uint8_t read_status = ReadAndClassifyTarget(uid, &uid_length);
+            // bool success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uid_length);
+            
+            // uint8_t read_status = 0;
+            
+            DEBUG_PRINT("READ done %d %d %d\n", uid_length, nfc.sak, nfc.atqa);
+            // nfc.PrintHex(uid, uid_length);
+
+            switch (read_status)
+            {
+            case RFID_READ_NO_TAG:
+                DEBUG_PRINT("No tag\n");
+                StopLEDRing();
+                break;
+            case RFID_READ_TIMED_OUT:
+                DEBUG_PRINT("Timed out\n");
+                ErrorLED();
+                Beep(fail_beeps, 5);
+                break;
+            case RFID_READ_UID:
+                HexDump("UID", uid, uid_length);
+                OutputHexData("UID", uid, uid_length);
+                Beep(success_beeps, sizeof(success_beeps) / sizeof(success_beeps[0]));
+                StopLEDRing();
+                SuccessLED(1);
+                break;
+            case RFID_READ_EMVCO:
+                //StartBeep();
+                uint8_t pan[255];
+                uint8_t pan_length = 20;
+                if (ReadEMVCoPAN(pan, &pan_length) == EMVCO_READ_OK) {
+                    DEBUG_PRINT("Got EMV PAN: %s\n", pan);
+                    OutputPan("PAN", pan, pan_length);
+                    //StopBeep();
+                    SuccessLED(0);
+                    Beep(emv_beeps, 6);
+                } else {
+                    DEBUG_PRINT("Failed to EMV\n");
+                    OutputHexData("UID", uid, uid_length);
+                    //StopBeep();
+                    ErrorLED();
+                    Beep(fail_beeps, 6);
+                }
+                break;
+
+            // Throttle card reads just a little bit, wait for target
+            // being removed from field or cooldown to pass
+            while (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uid_length, 2000));
+            }
+            lastRead = millis();
+        }
     }
 }
