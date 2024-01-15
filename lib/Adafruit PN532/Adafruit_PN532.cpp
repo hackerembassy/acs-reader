@@ -68,7 +68,7 @@ byte pn532response_firmwarevers[] = {0x00, 0x00, 0xFF, 0x06, 0xFA, 0xD5};
 // Uncomment these lines to enable debug output for PN532(SPI) and/or MIFARE
 // related code
 
-// #define PN532DEBUG
+//#define PN532DEBUG
 // #define MIFAREDEBUG
 
 // If using Native Port on Arduino Zero or Due define as SerialUSB
@@ -496,7 +496,7 @@ bool Adafruit_PN532::setPassiveActivationRetries(uint8_t maxRetries) {
 
 bool Adafruit_PN532::setRFCfg(uint8_t rfCfg) {
   pn532_packetbuffer[0]  = PN532_COMMAND_RFCONFIGURATION;
-  pn532_packetbuffer[0]  = 0x0A;  // Config item 10 (Analog settings for the baudrate 106 kbps type A)
+  pn532_packetbuffer[1]  = 0x0A;  // Config item 10 (Analog settings for the baudrate 106 kbps type A)
   pn532_packetbuffer[2]  = rfCfg; // CIU_RFCfg (default = 0x59)
   pn532_packetbuffer[3]  = 0xF4;  // CIU_GsNOn (default = 0xF4)
   pn532_packetbuffer[4]  = 0x3F;  // CIU_CWGsP (default = 0x3F)
@@ -563,6 +563,195 @@ bool Adafruit_PN532::readPassiveTargetID(uint8_t cardbaudrate, uint8_t *uid,
   }
 
   return readDetectedPassiveTargetID(uid, uidLength);
+}
+
+/**************************************************************************/
+/*!
+    Release the target(s)
+
+    @param  tg  Logical number of the relevant target (0x00 is a specific value indicating all available targets).
+
+    @returns 1 if everything executed properly, 0 for an error
+*/
+/**************************************************************************/
+bool Adafruit_PN532::inRelease(uint8_t tg) {
+  pn532_packetbuffer[0]  = PN532_COMMAND_INRELEASE;
+  pn532_packetbuffer[1]  = tg;
+
+#ifdef MIFAREDEBUG
+  PN532DEBUGPRINT.print(F("Setting RFCfg to "));
+  PN532DEBUGPRINT.print(rfCfg, HEX);
+  PN532DEBUGPRINT.println(F(" "));
+#endif
+
+  if (!sendCommandCheckAck(pn532_packetbuffer, 2, 100))
+    return 0x0; // no ACK
+
+  if (!waitready(100)) {
+#ifdef PN532DEBUG
+    PN532DEBUGPRINT.println(F("Response never received for cmd..."));
+#endif
+    return false;
+  }
+
+    readdata(pn532_packetbuffer, sizeof(pn532_packetbuffer));
+
+  if (pn532_packetbuffer[0] == 0 && pn532_packetbuffer[1] == 0 &&
+      pn532_packetbuffer[2] == 0xff) {
+    uint8_t length = pn532_packetbuffer[3];
+    if (pn532_packetbuffer[4] != (uint8_t)(~length + 1)) {
+#ifdef PN532DEBUG
+      PN532DEBUGPRINT.println(F("Length check invalid"));
+      PN532DEBUGPRINT.println(length, HEX);
+      PN532DEBUGPRINT.println((~length) + 1, HEX);
+#endif
+      return false;
+    }
+    if (pn532_packetbuffer[5] == PN532_PN532TOHOST &&
+        pn532_packetbuffer[6] == 0x53) {
+      if ((pn532_packetbuffer[7] & 0x3f) != 0) {
+#ifdef PN532DEBUG
+        PN532DEBUGPRINT.print(F("Status code indicates an error: "));
+        PN532DEBUGPRINT.println(pn532_packetbuffer[7], HEX);
+#endif
+        return false;
+      }
+      return true;
+    } else {
+      PN532DEBUGPRINT.print(F("Don't know how to handle this command: "));
+      PN532DEBUGPRINT.println(pn532_packetbuffer[6], HEX);
+      return false;
+    }
+  } else {
+    PN532DEBUGPRINT.println(F("Preamble missing"));
+    return false;
+  }
+}
+
+/**************************************************************************/
+/*!
+    Deselect the target(s)
+
+    @param  tg  Logical number of the relevant target (0x00 is a specific value indicating all available targets).
+
+    @returns 1 if everything executed properly, 0 for an error
+*/
+/**************************************************************************/
+bool Adafruit_PN532::inDeselect(uint8_t tg) {
+  pn532_packetbuffer[0]  = PN532_COMMAND_INDESELECT;
+  pn532_packetbuffer[1]  = tg;
+
+#ifdef MIFAREDEBUG
+  PN532DEBUGPRINT.print(F("Setting RFCfg to "));
+  PN532DEBUGPRINT.print(rfCfg, HEX);
+  PN532DEBUGPRINT.println(F(" "));
+#endif
+
+  if (!sendCommandCheckAck(pn532_packetbuffer, 2, 100))
+    return 0x0; // no ACK
+
+  if (!waitready(100)) {
+#ifdef PN532DEBUG
+    PN532DEBUGPRINT.println(F("Response never received for cmd..."));
+#endif
+    return false;
+  }
+
+    readdata(pn532_packetbuffer, sizeof(pn532_packetbuffer));
+
+  if (pn532_packetbuffer[0] == 0 && pn532_packetbuffer[1] == 0 &&
+      pn532_packetbuffer[2] == 0xff) {
+    uint8_t length = pn532_packetbuffer[3];
+    if (pn532_packetbuffer[4] != (uint8_t)(~length + 1)) {
+#ifdef PN532DEBUG
+      PN532DEBUGPRINT.println(F("Length check invalid"));
+      PN532DEBUGPRINT.println(length, HEX);
+      PN532DEBUGPRINT.println((~length) + 1, HEX);
+#endif
+      return false;
+    }
+    if (pn532_packetbuffer[5] == PN532_PN532TOHOST &&
+        pn532_packetbuffer[6] == 0x45) {
+      if ((pn532_packetbuffer[7] & 0x3f) != 0) {
+#ifdef PN532DEBUG
+        PN532DEBUGPRINT.print(F("Status code indicates an error: "));
+        PN532DEBUGPRINT.println(pn532_packetbuffer[7], HEX);
+#endif
+        return false;
+      }
+      return true;
+    } else {
+      PN532DEBUGPRINT.print(F("Don't know how to handle this command: "));
+      PN532DEBUGPRINT.println(pn532_packetbuffer[6], HEX);
+      return false;
+    }
+  } else {
+    PN532DEBUGPRINT.println(F("Preamble missing"));
+    return false;
+  }
+}
+
+/**************************************************************************/
+/*!
+    Select the target
+
+    @param  tg  Logical number of the relevant target
+
+    @returns 1 if everything executed properly, 0 for an error
+*/
+/**************************************************************************/
+bool Adafruit_PN532::inSelect(uint8_t tg) {
+  pn532_packetbuffer[0]  = PN532_COMMAND_INSELECT;
+  pn532_packetbuffer[1]  = tg;
+
+#ifdef MIFAREDEBUG
+  PN532DEBUGPRINT.print(F("Setting RFCfg to "));
+  PN532DEBUGPRINT.print(rfCfg, HEX);
+  PN532DEBUGPRINT.println(F(" "));
+#endif
+
+  if (!sendCommandCheckAck(pn532_packetbuffer, 2, 100))
+    return 0x0; // no ACK
+
+  if (!waitready(100)) {
+#ifdef PN532DEBUG
+    PN532DEBUGPRINT.println(F("Response never received for cmd..."));
+#endif
+    return false;
+  }
+
+    readdata(pn532_packetbuffer, sizeof(pn532_packetbuffer));
+
+  if (pn532_packetbuffer[0] == 0 && pn532_packetbuffer[1] == 0 &&
+      pn532_packetbuffer[2] == 0xff) {
+    uint8_t length = pn532_packetbuffer[3];
+    if (pn532_packetbuffer[4] != (uint8_t)(~length + 1)) {
+#ifdef PN532DEBUG
+      PN532DEBUGPRINT.println(F("Length check invalid"));
+      PN532DEBUGPRINT.println(length, HEX);
+      PN532DEBUGPRINT.println((~length) + 1, HEX);
+#endif
+      return false;
+    }
+    if (pn532_packetbuffer[5] == PN532_PN532TOHOST &&
+        pn532_packetbuffer[6] == 0x55) {
+      if ((pn532_packetbuffer[7] & 0x3f) != 0) {
+#ifdef PN532DEBUG
+        PN532DEBUGPRINT.print(F("Status code indicates an error: "));
+        PN532DEBUGPRINT.println(pn532_packetbuffer[7], HEX);
+#endif
+        return false;
+      }
+      return true;
+    } else {
+      PN532DEBUGPRINT.print(F("Don't know how to handle this command: "));
+      PN532DEBUGPRINT.println(pn532_packetbuffer[6], HEX);
+      return false;
+    }
+  } else {
+    PN532DEBUGPRINT.println(F("Preamble missing"));
+    return false;
+  }
 }
 
 /**************************************************************************/
@@ -707,7 +896,94 @@ bool Adafruit_PN532::inDataExchange(uint8_t *send, uint8_t sendLength,
         pn532_packetbuffer[6] == PN532_RESPONSE_INDATAEXCHANGE) {
       if ((pn532_packetbuffer[7] & 0x3f) != 0) {
 #ifdef PN532DEBUG
-        PN532DEBUGPRINT.println(F("Status code indicates an error"));
+        PN532DEBUGPRINT.print(F("Status code indicates an error: "));
+        PN532DEBUGPRINT.println(pn532_packetbuffer[7], HEX);
+#endif
+        return false;
+      }
+
+      length -= 3;
+
+      if (length > *responseLength) {
+        length = *responseLength; // silent truncation...
+      }
+
+      for (i = 0; i < length; ++i) {
+        response[i] = pn532_packetbuffer[8 + i];
+      }
+      *responseLength = length;
+
+      return true;
+    } else {
+      PN532DEBUGPRINT.print(F("Don't know how to handle this command: "));
+      PN532DEBUGPRINT.println(pn532_packetbuffer[6], HEX);
+      return false;
+    }
+  } else {
+    PN532DEBUGPRINT.println(F("Preamble missing"));
+    return false;
+  }
+}
+
+/**************************************************************************/
+/*!
+    @brief  Basic data exchanges between the PN532 and a target.
+
+    @param  send            Pointer to data to send
+    @param  sendLength      Length of the data to send
+    @param  response        Pointer to response data
+    @param  responseLength  Pointer to the response data length
+*/
+/**************************************************************************/
+bool Adafruit_PN532::inCommunicateThru(uint8_t *send, uint8_t sendLength,
+                                    uint8_t *response,
+                                    uint8_t *responseLength, uint16_t timeout = 1000) {
+  if (sendLength > PN532_PACKBUFFSIZ - 2) {
+#ifdef PN532DEBUG
+    PN532DEBUGPRINT.println(F("APDU length too long for packet buffer"));
+#endif
+    return false;
+  }
+  uint8_t i;
+
+  pn532_packetbuffer[0] = 0x42; // PN532_COMMAND_INCOMMUNICATETHROUGH;
+  for (i = 0; i < sendLength; ++i) {
+    pn532_packetbuffer[i + 1] = send[i];
+  }
+
+  if (!sendCommandCheckAck(pn532_packetbuffer, sendLength + 1, timeout)) {
+#ifdef PN532DEBUG
+    PN532DEBUGPRINT.println(F("Could not send APDU"));
+#endif
+    return false;
+  }
+
+  if (!waitready(timeout + 100)) {
+#ifdef PN532DEBUG
+    PN532DEBUGPRINT.println(F("Response never received for APDU..."));
+#endif
+    return false;
+  }
+
+  readdata(pn532_packetbuffer, sizeof(pn532_packetbuffer));
+
+  if (pn532_packetbuffer[0] == 0 && pn532_packetbuffer[1] == 0 &&
+      pn532_packetbuffer[2] == 0xff) {
+    uint8_t length = pn532_packetbuffer[3];
+    if (pn532_packetbuffer[4] != (uint8_t)(~length + 1)) {
+#ifdef PN532DEBUG
+      PN532DEBUGPRINT.println(F("Length check invalid"));
+      PN532DEBUGPRINT.println(length, HEX);
+      PN532DEBUGPRINT.println((~length) + 1, HEX);
+#endif
+      return false;
+    }
+    if (pn532_packetbuffer[5] == PN532_PN532TOHOST &&
+        pn532_packetbuffer[6] == PN532_RESPONSE_INCOMMUNICATETHRU) {
+      if ((pn532_packetbuffer[7] & 0x3f) != 0) {
+#ifdef PN532DEBUG
+        PN532DEBUGPRINT.print(F("Status code indicates an error: "));
+        PN532DEBUGPRINT.println(pn532_packetbuffer[7], HEX);
 #endif
         return false;
       }

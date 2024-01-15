@@ -4,13 +4,12 @@
 #include "secrets.h"
 
 // Debug
-//#define DEBUG_ENABLED
-
+#define DEBUG_ENABLED
 // PN532 pins
-#define PN532_IRQ 6
-#define PN532_RST 8 // Must be connected to RSTPDN pin, not RSTO!
-#define PN532_SDA 5
-#define PN532_SCL 4
+#define PN532_IRQ 22
+#define PN532_RST 33 // Must be connected to RSTPDN pin, not RSTO!
+#define PN532_SDA 23
+#define PN532_SCL 19
 
 // RDM6300 pins
 #define RDM6300_SERIAL Serial1
@@ -25,10 +24,10 @@
 
 // Beeper
 #define BEEPER_GND 3
-#define BEEPER_VCC 10
+#define BEEPER_VCC 21
 
 // LED
-#define LED_DATA_PIN  7
+#define LED_DATA_PIN  25
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
 #define NUM_LEDS    7

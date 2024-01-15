@@ -37,6 +37,7 @@ Adafruit_PN532 nfc(PN532_IRQ, PN532_RST);
 bool InitNFC()
 {
     Wire.setPins(PN532_SDA, PN532_SCL);
+    Wire.setClock(400000);
     nfc.begin();
 
     if (!nfc.getFirmwareVersion())
@@ -46,8 +47,8 @@ bool InitNFC()
         return false;
     }
 
-    nfc.setPassiveActivationRetries(0xFF);
-    //nfc.setRFCfg(0x7F);
+    nfc.setPassiveActivationRetries(0x10);
+    nfc.setRFCfg(0x7F);
     //nfc.setPassiveActivationRetries(0x01);
     nfc.SAMConfig();
     return true;
@@ -57,7 +58,7 @@ uint8_t GetEMVCoType(uint8_t sak, uint16_t atqa)
 {
     DEBUG_PRINT("SAK: %02x, ATQA: %04x\n", sak, atqa);
     // TODO
-    return EMVCO_BASIC;
+    //return EMVCO_BASIC;
 
     // Any EMVCo-capable targets must have SAK equal to 0x20 or 0x28
     if (sak != 0x20 && sak != 0x28)
@@ -100,13 +101,13 @@ uint8_t ReadAndClassifyTarget(uint8_t *uid_buffer, uint8_t *uid_length)
     buffer[2] = PN532_MIFARE_ISO14443A;
 
     // Send passive targets inlist command
-    if (!nfc.sendCommandCheckAck(buffer, 3, 0))
+    if (!nfc.sendCommandCheckAck(buffer, 3, 500))
     {
         return RFID_READ_TIMED_OUT;
     }
 
     // Waiting for the target detection response
-    if (!nfc.waitready(0))
+    if (!nfc.waitready(250))
     {
         return RFID_READ_TIMED_OUT;
     }
@@ -135,6 +136,8 @@ uint8_t ReadAndClassifyTarget(uint8_t *uid_buffer, uint8_t *uid_length)
     nfc._inListedTag = buffer[8];
 
     uint8_t emvco_support = GetEMVCoType(sak, atqa);
+
+
     if (emvco_support == EMVCO_UNSUPPORTED)
     {
         return RFID_READ_UID;
@@ -732,7 +735,21 @@ void HandleNFC()
     {
         uint8_t uid_length = 255;
         uint8_t uid[255];
-        uint8_t read_status = ReadAndClassifyTarget(uid, &uid_length);
+        uint8_t read_status;
+
+        uint8_t ecp_buffer[255];
+        uint8_t ecp_length = 10;
+
+        // Apple ECP
+        //uint8_t ecp[] = {0x6a, 0x02, 0xc8, 0x01, 0x00, 0x03, 0x00, 0x02, 0x79, 0x00, 0x00, 0x00, 0x00};
+        uint8_t ecp[] = {0x6a, 0x02, 0xc8, 0x01, 0x00, 0x03, 0x00, 0x0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x84, 0x80};
+
+        read_status = ReadAndClassifyTarget(uid, &uid_length);
+        nfc.inCommunicateThru(ecp, sizeof(ecp), ecp_buffer, &ecp_length, 50);
+        nfc.inSelect(1);
+        //nfc.inCommunicateThru(ecp, sizeof(ecp), ecp_buffer, &ecp_length, 150);
+
+
 
         switch (read_status)
         {
@@ -744,6 +761,7 @@ void HandleNFC()
             DEBUG_PRINT("Timed out\n");
             ErrorLED();
             Beep(fail_beeps, 5);
+            nfc.inRelease(0);
             break;
         case RFID_READ_UID:
             HexDump("UID", uid, uid_length);
@@ -756,15 +774,19 @@ void HandleNFC()
             StartLEDRing();
             uint8_t pan[255];
             uint8_t pan_length = 255;
+            //nfc.inDeselect(0);
+            //nfc.inListPassiveTarget();
             if (ReadEMVCoPAN(pan, &pan_length) == EMVCO_READ_OK) {
                 DEBUG_PRINT("Got EMV PAN: %s\n", pan);
                 OutputPan("PAN", pan, pan_length);
                 //StopBeep();
                 SuccessLED();
                 Beep(emv_beeps, 6);
+                nfc.inRelease(0);
             } else {
                 DEBUG_PRINT("Failed to EMV\n");
                 OutputHexData("UID", uid, uid_length);
+                nfc.inRelease(0);
                 //StopBeep();
                 ErrorLED();
                 Beep(fail_beeps, 6);

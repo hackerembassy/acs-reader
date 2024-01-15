@@ -76,6 +76,7 @@
 #define PN532_COMMAND_TGGETTARGETSTATUS (0x8A)
 
 #define PN532_RESPONSE_INDATAEXCHANGE (0x41)
+#define PN532_RESPONSE_INCOMMUNICATETHRU (0x43)   ///< Communicate through
 #define PN532_RESPONSE_INLISTPASSIVETARGET (0x4B)
 
 #define PN532_WAKEUP (0x55)
@@ -162,7 +163,7 @@ public:
   bool SAMConfig(void);
   uint32_t getFirmwareVersion(void);
   bool sendCommandCheckAck(uint8_t *cmd, uint8_t cmdlen,
-                           uint16_t timeout = 100);
+                           uint16_t timeout = 1000);
   bool writeGPIO(uint8_t pinstate);
   uint8_t readGPIO(void);
   bool setPassiveActivationRetries(uint8_t maxRetries);
@@ -172,10 +173,15 @@ public:
   bool readPassiveTargetID(
       uint8_t cardbaudrate, uint8_t *uid, uint8_t *uidLength,
       uint16_t timeout = 0); // timeout 0 means no timeout - will block forever.
+  bool inSelect(uint8_t tg);
+  bool inDeselect(uint8_t tg);
+  bool inRelease(uint8_t tg);
   bool startPassiveTargetIDDetection(uint8_t cardbaudrate);
   bool readDetectedPassiveTargetID(uint8_t *uid, uint8_t *uidLength);
   bool inDataExchange(uint8_t *send, uint8_t sendLength, uint8_t *response,
                       uint8_t *responseLength);
+  bool inCommunicateThru(uint8_t *send, uint8_t sendLength, uint8_t *response,
+                      uint8_t *responseLength, uint16_t timeout);
   bool inListPassiveTarget();
   uint8_t AsTarget();
   uint8_t getDataTarget(uint8_t *cmd, uint8_t *cmdlen);

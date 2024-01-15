@@ -45,5 +45,5 @@ void InitWiFi()
 }
 
 void StartWiFi() {
-    ConnectToWiFi(nullptr);
+    //ConnectToWiFi(nullptr);
 }
