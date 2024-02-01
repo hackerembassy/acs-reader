@@ -7,10 +7,10 @@
 #define DEBUG_ENABLED
 
 // PN532 pins
-#define PN532_IRQ 32
+#define PN532_IRQ 22
 #define PN532_RST 33  // Must be connected to RSTPDN pin, not RSTO!
-#define PN532_SDA 21  // 3
-#define PN532_SCL 22  // 2
+#define PN532_SDA 23  // 3
+#define PN532_SCL 19  // 2
 
 // RDM6300 pins
 #define RDM6300_SERIAL Serial1
@@ -28,7 +28,7 @@
 #define BEEPER_VCC 26  // 35
 
 // WiFi
-#define WIFI_SSID "B4CK"
+#define WIFI_SSID "MOWMOW"
 #define WIFI_PASSWORD SECRET_WIFI_PASSWORD
 
 // WiFi
