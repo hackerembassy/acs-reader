@@ -1,8 +1,10 @@
 #include "handler.h"
 #include "../mcu_config.h"
+#include "../mqtt.h"
 #include "../utils/beeper.h"
 #include "../utils/debug.h"
 #include "../utils/output.h"
+#include "../utils/led.h"
 #include "interface/pn532.h"
 #include "tlv/parser.h"
 
@@ -19,18 +21,20 @@
 
 PN532 nfc(Wire, PN532_SCL, PN532_SDA, PN532_IRQ, PN532_RST);
 
-void InitNFC() {
+bool InitNFC() {
   if (!nfc.Init()) {
+    StartBeep();
     DEBUG_PRINT("PN532 Connection Failed\n");
-    while (1)
-      ;  // halt
+    return false;
   }
+  return true;
 }
 
 uint8_t ReadAndClassifyTarget(std::vector<uint8_t>& uid) {
   NFCTagInfo info;
   if (!nfc.FindTag(info, 1000)) {
-    return RFID_READ_TIMED_OUT;
+    return RFID_READ_NO_TAG;
+    //return RFID_READ_TIMED_OUT;
   }
 
   uid.clear();
@@ -63,6 +67,7 @@ void OutputPan(const char* type, const std::vector<uint8_t>& data) {
     output_stream << static_cast<char>(byte);
   }
   OutputReadID(type, output_stream.str().c_str());
+  PublishToMQTT(type, output_stream.str().c_str());
 }
 
 bool EMVGetAID(std::vector<uint8_t>& aid) {
@@ -486,8 +491,9 @@ uint8_t ReadEMVCoPAN(std::vector<uint8_t>& pan) {
   return EMVCO_READ_OK;
 }
 
-std::vector<uint32_t> kSuccessBeeps{100};
-std::vector<uint32_t> kEmvBeeps{0, 50, 75, 50, 75};
+std::vector<uint32_t> kSuccessBeeps{2, 3000, 50};
+std::vector<uint32_t> kEmvBeeps{6, 4000, 50, 0, 75, 4000, 50};
+std::vector<uint32_t> kFailBeeps{6, 1000, 200, 0, 200, 1000, 200};
 
 void HandleNFC() {
   DEBUG_PRINT("NFC started on core %d\n", xPortGetCoreID());
@@ -499,33 +505,41 @@ void HandleNFC() {
     uint8_t read_status = ReadAndClassifyTarget(uid);
 
     switch (read_status) {
-      case RFID_READ_NO_TAG:
-        DEBUG_PRINT("No tag\n");
+      case RFID_READ_NO_TAG: // TODO: Fix no tag
+        //DEBUG_PRINT("No tag\n");
+        StopLEDRing();
         old_uid.clear();
         break;
       case RFID_READ_TIMED_OUT:
         DEBUG_PRINT("Timed out\n");
+        StopLEDRing();
         old_uid.clear();
         break;
       case RFID_READ_UID:
+        SuccessLED();
       case RFID_READ_EMVCO:
         if (uid == old_uid) {
           continue;
         }
         old_uid = uid;
 
+        StartLEDRing();
+
         HexDump("UID", uid);
-        OutputHexData("UID", uid);
+        //OutputHexData("UID", uid);
 
         StartBeep();
         std::vector<uint8_t> pan;
         pan.reserve(22);
         if (ReadEMVCoPAN(pan) == EMVCO_READ_OK) {
           OutputPan("PAN", pan);
+          YellowLEDRing();
+          //SuccessLED();
           StopBeep();
           Beep(kEmvBeeps);
         } else {
           DEBUG_PRINT("Failed to EMV\n");
+          ErrorLED();
           StopBeep();
           old_uid.clear();
         }

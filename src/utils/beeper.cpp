@@ -4,26 +4,35 @@
 #include "../mcu_config.h"
 
 void InitBeeper() {
-  pinMode(BEEPER_GND, OUTPUT_OPEN_DRAIN);
-  pinMode(BEEPER_VCC, OUTPUT);
-  digitalWrite(BEEPER_GND, HIGH);
-  digitalWrite(BEEPER_VCC, HIGH);
+  // ledcSetup(0, 8000, 12);
+  // pinMode(BEEPER, OUTPUT_OPEN_DRAIN);
+  // digitalWrite(BEEPER, LOW);
 }
 
-void Beep(const std::vector<uint32_t>& times) {
-  uint8_t state = HIGH;
-  for (auto period : times) {
-    state = !state;
-    digitalWrite(BEEPER_GND, state);
-    delay(period);
-  }
-  digitalWrite(BEEPER_GND, HIGH);
+void Beep(const std::vector<uint32_t>& time) {
+
+  // ledcAttachPin(BEEPER, 0);
+  // for (uint32_t i = 1; i < (time[0] + 1); i = i + 2) {
+  //     if(time[i] > 0) ledcWriteTone(0, time[i]);
+  //     else ledcWrite(0, 0);
+  //     delay(time[i+1]);
+  // }
+
+  // ledcWrite(0, 0);
+  // ledcDetachPin(BEEPER);
+  // digitalWrite(BEEPER, LOW);
+  // pinMode(BEEPER, OUTPUT_OPEN_DRAIN);
+
 }
 
 void StartBeep() {
-  digitalWrite(BEEPER_GND, LOW);
+  // ledcAttachPin(BEEPER, 0);
+  // ledcWriteTone(0, 70);
 }
 
 void StopBeep() {
-  digitalWrite(BEEPER_GND, HIGH);
+  // ledcWrite(0, 0);
+  // ledcDetachPin(BEEPER);
+  // digitalWrite(BEEPER, LOW);
+  // pinMode(BEEPER, OUTPUT_OPEN_DRAIN);
 }

@@ -1,6 +1,5 @@
 #include <Arduino.h>
 
-#include "125khz/handler.h"
 #include "arduino_ota.h"
 #include "esp_wifi.h"
 #include "mcu_config.h"
@@ -8,26 +7,19 @@
 #include "utils/beeper.h"
 #include "utils/debug.h"
 #include "utils/output.h"
+#include "utils/led.h"
+#include "mqtt.h"
 
-TaskHandle_t _125khz_task;
+
 TaskHandle_t nfc_task;
-
-void Main125KHzTask(void*) {
-  Handle125KHz();
-}
 
 void MainNFCTask(void*) {
   HandleNFC();
 }
 
-void Start125KHz() {
-  xTaskCreatePinnedToCore(Main125KHzTask, "125khz_task", 10000, nullptr, 1,
-                          &_125khz_task, 1);
-}
-
 void StartNFC() {
-  xTaskCreatePinnedToCore(MainNFCTask, "nfc_task", 10000, nullptr, 5,
-                          &_125khz_task, 0);
+  xTaskCreatePinnedToCore(MainNFCTask, "nfc_task", 10000, nullptr, 20,
+                          &nfc_task, 1);
 }
 
 std::vector<uint32_t> kStartupBeeps{200, 100, 200};
@@ -39,18 +31,26 @@ std::vector<uint32_t> kStartupBeeps{200, 100, 200};
 void setup() {
   InitDebug();
 
-  // Init125KHz();
-  InitNFC();
+  InitLED();
+  bool okNFC = InitNFC();
   InitWiFi();
+  InitMQTT();
   InitArduinoOTA();
   InitBeeper();
   InitOutput();
 
-  // StartWiFi();
+  StartWiFi();
 
-  // Start125KHz();
-  Beep(kStartupBeeps);
-  StartNFC();
+    // Start125KHz();
+  if(okNFC) {
+    DEBUG_PRINT("NFC OK\n");
+    StartNFC();
+    StartLED();
+    BlueLEDRing();
+  } else {
+    StartBeep();
+    ErrorPermanentLED();
+  }
 }
 
 void loop() {}

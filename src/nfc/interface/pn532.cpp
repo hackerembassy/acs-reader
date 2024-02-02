@@ -17,25 +17,33 @@ bool PN532::Init() {
   digitalWrite(this->rst_pin_, HIGH);
   delay(10);
 
+  DEBUG_PRINT("start i2c...\n");
+
   this->wire_.begin(this->sda_pin_, this->scl_pin_);
   this->wire_.setBufferSize(PN532_MAX_COMMAND_SIZE * 2u);
 
   uint32_t version;
   if (!this->GetFirmwareVersion(version)) {
+    DEBUG_PRINT("ver get failed\n");
     return false;
   }
 
   if (version == 0) {
+    DEBUG_PRINT("ver=0\n");
     return false;
   }
 
   if (!this->SetPassiveActivationRetries(255)) {
+    DEBUG_PRINT("SPAR failed\n");
     return false;
   }
 
   if (!this->SAMConfigure()) {
+    DEBUG_PRINT("SAMconf failed\n");
     return false;
   }
+
+  DEBUG_PRINT("NFC: everything ok\n");
 
   return true;
 }
