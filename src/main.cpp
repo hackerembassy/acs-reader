@@ -2,7 +2,6 @@
 
 #include "arduino_ota.h"
 #include "esp_wifi.h"
-#include "mcu_config.h"
 #include "nfc/handler.h"
 #include "utils/beeper.h"
 #include "utils/debug.h"

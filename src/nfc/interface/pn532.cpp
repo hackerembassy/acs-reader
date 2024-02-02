@@ -55,12 +55,15 @@ bool PN532::FindTag(NFCTagInfo& info, uint32_t timeout) {
     return false;
   }
   if (answer.size() < 7) {
+    DEBUG_PRINT("PN532 error: Size < 7\n");
     return false;
   }
   if (answer[0] != PN532_COMMAND_INLISTPASSIVETARGET_RESPONSE) {
+    DEBUG_PRINT("PN532 error: not ILPT resp\n");
     return false;
   }
   if (answer[1] != 1) {
+    DEBUG_PRINT("PN532 error: answer[1] != 1\n");
     return false;
   }
   info.atqa = (answer[3] << 8ul) | answer[4];
@@ -94,9 +97,11 @@ bool PN532::ApduExchange(const std::vector<uint8_t>& in_data,
     return false;
   }
   if (answer.size() < 2) {
+    DEBUG_PRINT("PN532 error: size < 2\n");
     return false;
   }
   if (answer[0] != PN532_COMMAND_INDATAEXCHANGE_RESPONSE) {
+    DEBUG_PRINT("PN532 error: not IDEx resp\n");
     return false;
   }
   if ((answer[1] & 0x3F) != 0) {
@@ -274,14 +279,17 @@ bool PN532::CommandExchange(const std::vector<uint8_t>& in_data,
   }
 
   if (!this->SendCommandData(in_data)) {
+    DEBUG_PRINT("PN532 error: sending cmd\n");
     return false;
   }
 
   if (!this->ReadAck(timeout)) {
+    DEBUG_PRINT("PN532 error: no ack\n");
     return false;
   }
 
   if (!this->ReadResponse(out_data, timeout)) {
+        DEBUG_PRINT("PN532 error: no rsp after ack\n");
     return false;
   }
 
@@ -297,6 +305,7 @@ bool PN532::WaitReady(uint32_t timeout) {
     delay(10);
     elapsed += 10;
   }
+  DEBUG_PRINT("PN532 error: wait rdy timeout\n");
   return false;
 }
 

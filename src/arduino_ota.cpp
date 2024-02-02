@@ -1,4 +1,3 @@
-#include "mcu_config.h"
 #include "utils/debug.h"
 
 #include <ArduinoOTA.h>

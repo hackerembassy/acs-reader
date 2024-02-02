@@ -1,5 +1,4 @@
 #include "handler.h"
-#include "../mcu_config.h"
 #include "../mqtt.h"
 #include "../utils/beeper.h"
 #include "../utils/debug.h"
@@ -495,12 +494,46 @@ std::vector<uint32_t> kSuccessBeeps{2, 3000, 50};
 std::vector<uint32_t> kEmvBeeps{6, 4000, 50, 0, 75, 4000, 50};
 std::vector<uint32_t> kFailBeeps{6, 1000, 200, 0, 200, 1000, 200};
 
+void CheckNfcChip() {
+  DEBUG_PRINT("checking NFC chip...\n");
+  uint32_t version;
+
+  if(nfc.GetFirmwareVersion(version)) {
+    if(version != 0) {
+      if (nfc.SetPassiveActivationRetries(255)){
+        if(nfc.SAMConfigure()) {
+          DEBUG_PRINT("NFC is OK\n");
+          return;
+        }
+      }
+    } 
+  }
+
+  DEBUG_PRINT("NFC reconfig error, resetting chip..\n");
+  if(nfc.Init()) {
+    DEBUG_PRINT("Re-init ok\n");
+    return;
+  } else {
+    DEBUG_PRINT("Re-init error.");
+    //ESP.restart();
+    return;
+  }
+}
+
 void HandleNFC() {
   DEBUG_PRINT("NFC started on core %d\n", xPortGetCoreID());
+  uint32_t tryNfcTimes = 0;
 
   std::vector<uint8_t> old_uid;
 
   for (;;) {
+    tryNfcTimes++;
+
+    if(tryNfcTimes > 30) {
+      tryNfcTimes = 0;
+      CheckNfcChip();
+    }
+
     std::vector<uint8_t> uid;
     uint8_t read_status = ReadAndClassifyTarget(uid);
 
@@ -528,19 +561,20 @@ void HandleNFC() {
         HexDump("UID", uid);
         //OutputHexData("UID", uid);
 
-        StartBeep();
+        //StartBeep();
         std::vector<uint8_t> pan;
         pan.reserve(22);
         if (ReadEMVCoPAN(pan) == EMVCO_READ_OK) {
           OutputPan("PAN", pan);
           YellowLEDRing();
           //SuccessLED();
-          StopBeep();
-          Beep(kEmvBeeps);
+          //StopBeep();
+          //Beep(kSuccessBeeps);
         } else {
           DEBUG_PRINT("Failed to EMV\n");
           ErrorLED();
-          StopBeep();
+          Beep(kFailBeeps);
+          //StopBeep();
           old_uid.clear();
         }
         break;

@@ -3,8 +3,6 @@
 
 #include <Arduino.h>
 
-#include "../mcu_config.h"
-
 #ifdef DEBUG_ENABLED
 #define DEBUG_PRINT(fmt, ...) DEBUG_SERIAL.printf(fmt, ##__VA_ARGS__)
 #else

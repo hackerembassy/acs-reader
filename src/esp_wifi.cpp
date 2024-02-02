@@ -2,7 +2,6 @@
 
 #include <WiFi.h>
 #include "arduino_ota.h"
-#include "mcu_config.h"
 #include "utils/debug.h"
 #include "utils/led.h"
 #include "mqtt.h"
