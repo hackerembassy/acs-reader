@@ -573,7 +573,7 @@ void HandleNFC() {
         } else {
           DEBUG_PRINT("Failed to EMV\n");
           ErrorLED();
-          Beep(kFailBeeps);
+          //Beep(kFailBeeps);
           //StopBeep();
           old_uid.clear();
         }

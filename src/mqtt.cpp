@@ -24,8 +24,8 @@ void StartMQTT() {
     xTimerStart(mqttReconnectTimer, 0);
 }
 
-std::vector<uint32_t> kAuthBeeps{14, 1500, 50, 0, 10, 1600, 50, 0, 10, 1700, 50, 0, 10, 1800, 50};
-std::vector<uint32_t> kWrongBeeps{22, 1500, 100, 0, 10, 1400, 100, 0, 10, 1300, 100, 0, 10, 1200, 100, 0, 10, 1100, 100, 0, 10, 1000, 100};
+std::vector<uint32_t> kAuthBeeps{14, 925, 70, 0, 10, 1165, 70, 0, 10, 1386, 70, 0, 10, 1850, 70};
+std::vector<uint32_t> kWrongBeeps{22, 654, 100, 0, 10, 734, 100, 0, 10, 824, 100, 0, 10, 654, 100, 0, 10, 734, 100, 0, 10, 654, 100};
 
 void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
   DEBUG_PRINT("Received MQTT msg: ");
