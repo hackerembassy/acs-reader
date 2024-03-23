@@ -17,7 +17,7 @@ void MainNFCTask(void*) {
 }
 
 void StartNFC() {
-  xTaskCreatePinnedToCore(MainNFCTask, "nfc_task", 10000, nullptr, 20,
+  xTaskCreatePinnedToCore(MainNFCTask, "nfc_task", 10000, nullptr, 10,
                           &nfc_task, 1);
 }
 

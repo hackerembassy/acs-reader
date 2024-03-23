@@ -85,5 +85,6 @@ void InitMQTT()
     mqttClient.onDisconnect(onMqttDisconnect);
     mqttClient.onMessage(onMqttMessage);
     mqttClient.setServer(MQTT_HOST, 1883);
+    mqttClient.setClientId(OTA_HOSTNAME);
     mqttClient.setCredentials(MQTT_USERNAME, SECRET_MQTT_PASSWORD);
 }

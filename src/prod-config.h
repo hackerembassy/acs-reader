@@ -7,10 +7,10 @@
 #define DEBUG_ENABLED
 
 // PN532 pins
-#define PN532_IRQ 22
-#define PN532_RST 33  // Must be connected to RSTPDN pin, not RSTO!
-#define PN532_SDA 23  // 3
-#define PN532_SCL 19  // 2
+#define PN532_IRQ 20
+#define PN532_RST 21  // Must be connected to RSTPDN pin, not RSTO!
+#define PN532_SDA 4
+#define PN532_SCL 5
 
 // Debug serial
 #define DEBUG_SERIAL Serial
@@ -20,14 +20,19 @@
 #define OUTPUT_SERIAL_SPEED 115200
 
 // LED
-#define LED_DATA_PIN  25
+#define LED_DATA_PIN  9
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
-#define NUM_LEDS    7
+#define NUM_LEDS    8
 #define BRIGHTNESS  255
 
 // Beeper
-#define BEEPER 21
+#define BEEPER 6
+
+// Dial pins
+#define DIAL_A 10
+#define DIAL_B 8
+#define DIAL_C 7
 
 // WiFi
 #define WIFI_SSID "MOWMeOW"

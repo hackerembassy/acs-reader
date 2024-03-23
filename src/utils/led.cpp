@@ -11,6 +11,7 @@
 #define ERROR_RING 3
 #define BLUE_RING 4
 #define YELLOW_RING 5
+#define NUMPAD_RING 6
 
 
 CRGB leds[NUM_LEDS];                                                                                                    

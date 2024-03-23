@@ -20,6 +20,15 @@
 
 PN532 nfc(Wire, PN532_SCL, PN532_SDA, PN532_IRQ, PN532_RST);
 
+void HexDump(const char* preamble, const std::vector<uint8_t>& data) {
+  DEBUG_PRINT("%s: ", preamble);
+  for (auto byte : data) {
+    DEBUG_PRINT("%02x", byte);
+  }
+  DEBUG_PRINT("\n");
+}
+
+
 bool InitNFC() {
   if (!nfc.Init()) {
     StartBeep();
@@ -36,18 +45,25 @@ uint8_t ReadAndClassifyTarget(std::vector<uint8_t>& uid) {
     //return RFID_READ_TIMED_OUT;
   }
 
+  // std::vector<uint8_t> ber;
+
+  // std::vector<uint8_t> apdu{0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x08, 0x58, 0x01, 0x01, 0x0};
+
+  // if (!nfc.ApduExchange(apdu, ber, 1000)) {
+  //   return false;
+  // }
+
+  // HexDump("ECP_REPLY", ber);
+
   uid.clear();
   uid.insert(uid.begin(), info.uid.begin(), info.uid.end());
 
-  return RFID_READ_EMVCO;
-}
-
-void HexDump(const char* preamble, const std::vector<uint8_t>& data) {
-  DEBUG_PRINT("%s: ", preamble);
-  for (auto byte : data) {
-    DEBUG_PRINT("%02x", byte);
+  if (info.sak != 0x20 && info.sak != 0x28)
+  {
+      return RFID_READ_UID;
   }
-  DEBUG_PRINT("\n");
+
+  return RFID_READ_EMVCO;
 }
 
 void OutputHexData(const char* type, const std::vector<uint8_t>& data) {
@@ -529,7 +545,7 @@ void HandleNFC() {
   for (;;) {
     tryNfcTimes++;
 
-    if(tryNfcTimes > 30) {
+    if(tryNfcTimes > 5) {
       tryNfcTimes = 0;
       CheckNfcChip();
     }
@@ -549,7 +565,11 @@ void HandleNFC() {
         old_uid.clear();
         break;
       case RFID_READ_UID:
-        SuccessLED();
+        // HexDump("UID", uid);
+        // OutputPan("UID", uid);
+        // YellowLEDRing();
+        ErrorLED();
+        break;
       case RFID_READ_EMVCO:
         if (uid == old_uid) {
           continue;

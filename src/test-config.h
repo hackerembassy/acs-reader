@@ -19,6 +19,12 @@
 #define OUTPUT_SERIAL Serial
 #define OUTPUT_SERIAL_SPEED 115200
 
+// Dial pins
+#define DIAL_A 10
+#define DIAL_B 8
+#define DIAL_C 7
+
+
 // LED
 #define LED_DATA_PIN  9
 #define LED_TYPE    WS2812B
