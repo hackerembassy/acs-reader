@@ -314,7 +314,7 @@ std::vector<PDOLValue> kFixedPdolValues{
     {0x5F2A, {0x01, 0x24}},             // Transaction currency code
     {0x009A, {0x19, 0x01, 0x01}},       // Transaction date TODO: make today
     {0x9F37, {0x82, 0x3D, 0xDE, 0x7A}}, // Unpredictable number TODO: make random
-    {0x9F66, {0xe1, 0x00, 0x00, 0x00}}}; // Terminal transaction qualifiers
+    {0x9F66, {0xe9, 0x00, 0x00, 0x00}}}; // Terminal transaction qualifiers
 
 bool EMVGenerateFakePDOL(const std::vector<uint8_t>& pdol_in,
                          std::vector<uint8_t>& pdol_out) {
