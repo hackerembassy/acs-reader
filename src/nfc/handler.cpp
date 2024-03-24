@@ -20,6 +20,9 @@
 
 PN532 nfc(Wire, PN532_SCL, PN532_SDA, PN532_IRQ, PN532_RST);
 
+std::vector<uint8_t> ecp_frame{0x6a, 0x02, 0xc8, 0x01, 0x00, 0x03, 0x00, 0x02, 0x79, 0x00, 0x00, 0x00, 0x00}; // TFL
+//std::vector<uint8_t> ecp_frame{0x6a, 0x02, 0xc8, 0x01, 0x00, 0x03, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00}; // LA TAP 
+
 void HexDump(const char* preamble, const std::vector<uint8_t>& data) {
   DEBUG_PRINT("%s: ", preamble);
   for (auto byte : data) {
@@ -40,20 +43,11 @@ bool InitNFC() {
 
 uint8_t ReadAndClassifyTarget(std::vector<uint8_t>& uid) {
   NFCTagInfo info;
-  if (!nfc.FindTag(info, 1000)) {
+  if (!nfc.FindTag(info, 100)) {
+    nfc.BroadcastECP(ecp_frame);
     return RFID_READ_NO_TAG;
     //return RFID_READ_TIMED_OUT;
   }
-
-  // std::vector<uint8_t> ber;
-
-  // std::vector<uint8_t> apdu{0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x08, 0x58, 0x01, 0x01, 0x0};
-
-  // if (!nfc.ApduExchange(apdu, ber, 1000)) {
-  //   return false;
-  // }
-
-  // HexDump("ECP_REPLY", ber);
 
   uid.clear();
   uid.insert(uid.begin(), info.uid.begin(), info.uid.end());
@@ -311,16 +305,16 @@ struct PDOLValue {
 
 // source: https://github.com/flipperdevices/flipperzero-firmware/blob/dev/lib/nfc/protocols/emv.c
 std::vector<PDOLValue> kFixedPdolValues{
-    {0x9F59, {0xC8, 0x80, 0x00}},
-    {0x9F58, {0x01}},
-    /* {0x9F66, 4, {0xf9, 0x00, 0x40, 0x80}}, */
-    {0x9F40, {0x79, 0x00, 0x40, 0x80}},
-    {0x9F02, {0x00, 0x00, 0x00, 0x10, 0x00, 0x00}},
-    {0x9F1A, {0x01, 0x24}},
-    {0x5F2A, {0x01, 0x24}},
-    {0x009A, {0x19, 0x01, 0x01}},
-    {0x9F37, {0x82, 0x3D, 0xDE, 0x7A}},
-    {0x9F66, {0xf0, 0x00, 0x00, 0x00}}};
+    {0x9F59, {0xC8, 0x80, 0x00}}, // Terminal transaction information
+    {0x9F58, {0x01}},             // Merchant type indicator
+    /* {0x9F66, 4, {0xf9, 0x00, 0x40, 0x80}}, */    // Terminal transaction qualifiers
+    {0x9F40, {0x79, 0x00, 0x40, 0x80}},             // Terminal transaction qualifiers
+    {0x9F02, {0x00, 0x00, 0x00, 0x10, 0x00, 0x00}}, // Amount, authorised
+    {0x9F1A, {0x01, 0x24}},             // Terminal country code
+    {0x5F2A, {0x01, 0x24}},             // Transaction currency code
+    {0x009A, {0x19, 0x01, 0x01}},       // Transaction date TODO: make today
+    {0x9F37, {0x82, 0x3D, 0xDE, 0x7A}}, // Unpredictable number TODO: make random
+    {0x9F66, {0xe1, 0x00, 0x00, 0x00}}}; // Terminal transaction qualifiers
 
 bool EMVGenerateFakePDOL(const std::vector<uint8_t>& pdol_in,
                          std::vector<uint8_t>& pdol_out) {
@@ -516,7 +510,7 @@ void CheckNfcChip() {
 
   if(nfc.GetFirmwareVersion(version)) {
     if(version != 0) {
-      if (nfc.SetPassiveActivationRetries(255)){
+      if (nfc.SetPassiveActivationRetries(0)){
         if(nfc.SAMConfigure()) {
           DEBUG_PRINT("NFC is OK\n");
           return;
@@ -545,7 +539,7 @@ void HandleNFC() {
   for (;;) {
     tryNfcTimes++;
 
-    if(tryNfcTimes > 5) {
+    if(tryNfcTimes > 10) {
       tryNfcTimes = 0;
       CheckNfcChip();
     }
@@ -566,8 +560,12 @@ void HandleNFC() {
         break;
       case RFID_READ_UID:
         // HexDump("UID", uid);
-        // OutputPan("UID", uid);
         // YellowLEDRing();
+        if (uid == old_uid) {
+          continue;
+        }
+        old_uid = uid;
+        // OutputHexData("UID", uid);
         ErrorLED();
         break;
       case RFID_READ_EMVCO:

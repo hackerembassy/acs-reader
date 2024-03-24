@@ -24,6 +24,7 @@ class PN532 : public NFCInterface {
 
   bool SetPassiveActivationRetries(uint8_t max_retries);
   bool SAMConfigure();
+  bool BroadcastECP(const std::vector<uint8_t>& data);
 
  private:
   bool CommandExchange(const std::vector<uint8_t>& in_data,

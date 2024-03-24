@@ -4,8 +4,37 @@
 #include "../../utils/debug.h"
 
 #include <numeric>
+#include <vector>
+#include <cstdint>
 
 std::vector<uint8_t> kPN532Ack{0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00};
+
+// Function to calculate CRC16
+std::vector<uint8_t> crc16a(const std::vector<uint8_t>& data) {
+  uint16_t w_crc = 0x6363;
+  std::vector<uint8_t> result(2, 0);
+
+  for (uint8_t byte : data) {
+    byte = (byte ^ (w_crc & 0x00FF));
+    byte = ((byte ^ (byte << 4)) & 0xFF);
+    w_crc = ((w_crc >> 8) ^ (byte << 8) ^ (byte << 3) ^ (byte >> 4)) & 0xFFFF;
+  }
+
+  result[0] = static_cast<uint8_t>(w_crc & 0xFF);
+  result[1] = static_cast<uint8_t>((w_crc >> 8) & 0xFF);
+
+  return result;
+}
+
+// Function to append CRC16 to data
+std::vector<uint8_t> with_crc16(std::vector<uint8_t> data) {
+  std::vector<uint8_t> result = crc16a(data);
+
+  // Append CRC16 result to original data
+  data.insert(data.end(), result.begin(), result.end());
+
+  return data;
+}
 
 bool PN532::Init() {
   pinMode(this->rst_pin_, OUTPUT);
@@ -33,7 +62,7 @@ bool PN532::Init() {
     return false;
   }
 
-  if (!this->SetPassiveActivationRetries(255)) {
+  if (!this->SetPassiveActivationRetries(0)) {
     DEBUG_PRINT("SPAR failed\n");
     return false;
   }
@@ -54,16 +83,16 @@ bool PN532::FindTag(NFCTagInfo& info, uint32_t timeout) {
                              answer, timeout)) {
     return false;
   }
-  if (answer.size() < 7) {
-    DEBUG_PRINT("PN532 error: Size < 7\n");
-    return false;
-  }
   if (answer[0] != PN532_COMMAND_INLISTPASSIVETARGET_RESPONSE) {
     DEBUG_PRINT("PN532 error: not ILPT resp\n");
     return false;
   }
   if (answer[1] != 1) {
-    DEBUG_PRINT("PN532 error: answer[1] != 1\n");
+   // DEBUG_PRINT("PN532 error: NbTg != 1\n");
+    return false;
+  }
+    if (answer.size() < 7) {
+   // DEBUG_PRINT("PN532 error: Size < 7\n");
     return false;
   }
   info.atqa = (answer[3] << 8ul) | answer[4];
@@ -85,6 +114,59 @@ bool PN532::FindTag(NFCTagInfo& info, uint32_t timeout) {
   }
   info.ats.insert(info.ats.begin(), answer.begin() + 7 + uid_length,
                   answer.begin() + 7 + uid_length + ats_length);
+  return true;
+}
+
+bool PN532::BroadcastECP(const std::vector<uint8_t>& data) {
+
+  //DEBUG_PRINT("PN532 ecp: writing register\n");
+  std::vector<uint8_t> answer_register;
+  if (!this->CommandExchange(
+          {PN532_COMMAND_WRITEREGISTER_REQUEST,
+          static_cast<uint8_t>((0x633d >> 8) & 0xFF),
+          static_cast<uint8_t>(0x633d & 0xFF),
+          0x00},
+          answer_register)) {
+    return false;
+  }
+
+  if (answer_register.size() != 1) {
+    DEBUG_PRINT("PN532 error: register response != 1\n");
+    return false;
+  }
+
+  if (answer_register[0] != PN532_COMMAND_WRITEREGISTER_RESPONSE) {
+    DEBUG_PRINT("PN532 error: not writereg resp\n");
+    return false;
+  }
+
+  //DEBUG_PRINT("PN532 ecp: register write OK\n");
+
+  std::vector<uint8_t> request{PN532_COMMAND_INCOMMUNICATETHRU_REQUEST};
+  std::vector<uint8_t> answer;
+  std::vector<uint8_t> crc_result = crc16a(data);
+
+  request.insert(request.end(), data.begin(), data.end());
+  request.insert(request.end(), crc_result.begin(), crc_result.end());
+  
+  //DEBUG_PRINT("PN532 ecp: sending frame\n");
+  this->CommandExchange(request, answer, 100);
+
+  // if (!) {
+  //   // we don't want errors as timeout is OK
+  //   //return false;
+  // }
+
+  // if (answer.size() < 2) {
+  //   DEBUG_PRINT("PN532 error: size < 2\n");
+  //   return false;
+  // }
+  // if (answer[0] != PN532_COMMAND_INCOMMUNICATETHRU_RESPONSE) {
+  //   DEBUG_PRINT("PN532 error: not IDEx resp\n");
+  //   return false;
+  // }
+
+  //DEBUG_PRINT("PN532 ecp: frame sent\n");
   return true;
 }
 

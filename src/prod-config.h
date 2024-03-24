@@ -4,7 +4,7 @@
 #include "secrets.h"
 
 // Debug
-#define DEBUG_ENABLED
+//#define DEBUG_ENABLED
 
 // PN532 pins
 #define PN532_IRQ 20
