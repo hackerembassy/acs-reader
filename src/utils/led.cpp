@@ -11,7 +11,7 @@
 #define ERROR_RING 3
 #define BLUE_RING 4
 #define YELLOW_RING 5
-#define NUMPAD_RING 6
+#define DIAL_RING 6
 
 
 CRGB leds[NUM_LEDS];                                                                                                    
@@ -35,12 +35,12 @@ void ledTask(void * pvParameters) {
             else if(ringRun == BLUE_RING) leds[ringPosition] = CRGB::Blue;
             else if(ringRun == YELLOW_RING) leds[ringPosition] = CRGB::Yellow;
             ringPosition++;    //Shifts all LEDs one step in the currently active direction    
-            if (ringPosition == NUM_LEDS) ringPosition = 0;    //If one end is reached, reset the position to loop around
-            if(ringRun == 5 && (millis() - yellowRingStart) > 10000) ringRun = 0;
+            if (ringPosition == NUM_LEDS) ringPosition = FIRST_LED;    //If one end is reached, reset the position to loop around
+            if(ringRun == YELLOW_RING && (millis() - yellowRingStart) > 10000) ringRun = 0;
             vTaskDelay(pdMS_TO_TICKS(40));
-        } else {
+        } else if(ringRun != DIAL_RING) {
             ringPosition++;
-            if(ringPosition > 40) ledRun = false;
+            if(ringPosition > 100) ledRun = false;
             if (ringRun == STOP_RING) fadeToBlackBy(leds, NUM_LEDS, 16); 
             else fadeToBlackBy(leds, NUM_LEDS, 32);
             vTaskDelay(pdMS_TO_TICKS(20));
@@ -72,11 +72,11 @@ void StartLED() {
                    NULL,        /* parameter of the task */
                    5,           /* priority of the task */
                    &LedTask,      /* Task handle to keep track of created task */
-                   0);          /* pin task to core 1 */
+                   0);          /* pin task to core 0 */
 }
 
 void StartLEDRing() {
-    if(ringRun != 1 && ringRun != 4 && ringRun != 5) {
+    if(ringRun != WHITE_RING && ringRun != BLUE_RING && ringRun != YELLOW_RING) {
         ringPosition = 0;
     }
     ringRun = WHITE_RING;
@@ -84,7 +84,7 @@ void StartLEDRing() {
 }
 
 void BlueLEDRing() {
-    if(ringRun != 1 && ringRun != 4 && ringRun != 5) {
+    if(ringRun != WHITE_RING && ringRun != BLUE_RING && ringRun != YELLOW_RING) {
         ringPosition = 0;
     }
     ringRun = BLUE_RING;
@@ -92,7 +92,7 @@ void BlueLEDRing() {
 }
 
 void YellowLEDRing() {
-    if(ringRun != 1 && ringRun != 4 && ringRun != 5) {
+    if(ringRun != WHITE_RING && ringRun != BLUE_RING && ringRun != YELLOW_RING) {
         ringPosition = 0;
     }
     yellowRingStart = millis();
@@ -100,14 +100,37 @@ void YellowLEDRing() {
     ledRun = true;
 }
 
+void DialLEDRing(uint8_t pinidx) {
+    ringPosition = 0;
+    ledRun = true;
+    ringRun = DIAL_RING;
+
+    for(uint8_t i; i < NUM_LEDS; i++)
+    {
+        leds[i] = CRGB::Black;
+    }
+
+    for(uint8_t i = pinidx + FIRST_LED; i < FIRST_LED + 6; i++)
+    {
+        leds[i] = CRGB::Red;
+    }
+
+    for(uint8_t i = FIRST_LED; i < (pinidx + FIRST_LED); i++)
+    {
+        leds[i] = CRGB::White;
+    }
+}
+
 void StopLEDRing() {
     // for (uint8_t i = 0; i < NUM_LEDS; i++) {
     //     leds[i] = CRGB(0, 0, 0);
     // }
     // FastLED.show();
-    ringPosition = 0;
-    ringRun = STOP_RING;
-    ledRun = true;
+    if(ringRun != STOP_RING) {
+        ringPosition = 0;
+        ringRun = STOP_RING;
+        ledRun = true;
+    }
 }
 
 void ErrorLED() {

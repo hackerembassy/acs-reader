@@ -23,16 +23,16 @@
 #define LED_DATA_PIN  9
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
-#define NUM_LEDS    8
+#define NUM_LEDS    7
+#define FIRST_LED 1
 #define BRIGHTNESS  255
 
 // Beeper
 #define BEEPER 6
 
 // Dial pins
-#define DIAL_A 10
-#define DIAL_B 8
-#define DIAL_C 7
+#define DIAL_INT           10
+#define DIAL_PULSE         8
 
 // WiFi
 #define WIFI_SSID "MOWMeOW"

@@ -5,7 +5,7 @@
 TimerHandle_t arduino_ota_timer;
 
 void HandleArduinoOTA(TimerHandle_t) {
-  DEBUG_PRINT("OTA handling\n");
+  //DEBUG_PRINT("OTA handling\n");
   ArduinoOTA.handle();
 }
 

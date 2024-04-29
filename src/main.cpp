@@ -7,7 +7,10 @@
 #include "utils/debug.h"
 #include "utils/output.h"
 #include "utils/led.h"
+#include "dial/dial.h"
 #include "mqtt.h"
+#include "nfc/interface/pn532.h"
+#include <memory>
 
 
 TaskHandle_t nfc_task;
@@ -23,31 +26,28 @@ void StartNFC() {
 
 std::vector<uint32_t> kStartupBeeps{200, 100, 200};
 
-#include "nfc/interface/pn532.h"
-
-#include <memory>
 
 void setup() {
   InitDebug();
-
+  InitBeeper();
   InitLED();
+
   bool okNFC = InitNFC();
   InitWiFi();
   InitMQTT();
   InitArduinoOTA();
-  InitBeeper();
   InitOutput();
+  InitDial(DIAL_INT, DIAL_PULSE);
 
   StartWiFi();
+  StartNFC();
+  StartLED();
 
-    // Start125KHz();
   if(okNFC) {
     DEBUG_PRINT("NFC OK\n");
-    StartNFC();
-    StartLED();
     BlueLEDRing();
   } else {
-    StartBeep();
+    DEBUG_PRINT("NFC fail\n");
     ErrorPermanentLED();
   }
 }

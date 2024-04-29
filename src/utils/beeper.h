@@ -8,5 +8,6 @@ void InitBeeper();
 void Beep(const std::vector<uint32_t>& time);
 void StartBeep();
 void StopBeep();
+void BeepTask(void *pvParameters);
 
 #endif

@@ -10,7 +10,7 @@
 std::vector<uint8_t> kPN532Ack{0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00};
 
 // Function to calculate CRC16
-std::vector<uint8_t> crc16a(const std::vector<uint8_t>& data) {
+std::vector<uint8_t> CalculateCRC16A(const std::vector<uint8_t>& data) {
   uint16_t w_crc = 0x6363;
   std::vector<uint8_t> result(2, 0);
 
@@ -26,15 +26,15 @@ std::vector<uint8_t> crc16a(const std::vector<uint8_t>& data) {
   return result;
 }
 
-// Function to append CRC16 to data
-std::vector<uint8_t> with_crc16(std::vector<uint8_t> data) {
-  std::vector<uint8_t> result = crc16a(data);
+// // Function to append CRC16 to data
+// std::vector<uint8_t> with_crc16(std::vector<uint8_t> data) {
+//   std::vector<uint8_t> result = CalculateCRC16A(data);
 
-  // Append CRC16 result to original data
-  data.insert(data.end(), result.begin(), result.end());
+//   // Append CRC16 result to original data
+//   data.insert(data.end(), result.begin(), result.end());
 
-  return data;
-}
+//   return data;
+// }
 
 bool PN532::Init() {
   pinMode(this->rst_pin_, OUTPUT);
@@ -144,7 +144,7 @@ bool PN532::BroadcastECP(const std::vector<uint8_t>& data) {
 
   std::vector<uint8_t> request{PN532_COMMAND_INCOMMUNICATETHRU_REQUEST};
   std::vector<uint8_t> answer;
-  std::vector<uint8_t> crc_result = crc16a(data);
+  std::vector<uint8_t> crc_result = CalculateCRC16A(data);
 
   request.insert(request.end(), data.begin(), data.end());
   request.insert(request.end(), crc_result.begin(), crc_result.end());

@@ -24,6 +24,7 @@ void WiFiEvent(WiFiEvent_t event) {
       DEBUG_PRINT("OTA server has been started\n");
       xTimerStop(wifi_reconnect_timer, 0);
       StartMQTT();
+      StopLEDRing();
       break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
       DEBUG_PRINT("WiFi lost connection\n");

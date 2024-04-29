@@ -20,17 +20,16 @@
 #define OUTPUT_SERIAL_SPEED 115200
 
 // Dial pins
-#define DIAL_A 10
-#define DIAL_B 8
-#define DIAL_C 7
-
+#define DIAL_INT           10
+#define DIAL_PULSE         8
 
 // LED
 #define LED_DATA_PIN  9
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
 #define NUM_LEDS    8
-#define BRIGHTNESS  255
+#define FIRST_LED 0
+#define BRIGHTNESS  100
 
 // Beeper
 #define BEEPER 6

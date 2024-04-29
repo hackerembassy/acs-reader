@@ -10,6 +10,8 @@ TimerHandle_t mqttReconnectTimer;
 
 AsyncMqttClient mqttClient;
 
+char *topic_will;
+
 void PublishToMQTT(const char* type, const char* data) {
     char *topic;
     asprintf(&topic, "%s/%s", MQTT_TOPIC, type);
@@ -24,8 +26,8 @@ void StartMQTT() {
     xTimerStart(mqttReconnectTimer, 0);
 }
 
-std::vector<uint32_t> kAuthBeeps{14, 925, 70, 0, 10, 1165, 70, 0, 10, 1386, 70, 0, 10, 1850, 70};
-std::vector<uint32_t> kWrongBeeps{22, 654, 100, 0, 10, 734, 100, 0, 10, 824, 100, 0, 10, 654, 100, 0, 10, 734, 100, 0, 10, 654, 100};
+std::vector<uint32_t> kAuthBeeps{925, 70, 0, 10, 1165, 70, 0, 10, 1386, 70, 0, 10, 1850, 70};
+std::vector<uint32_t> kWrongBeeps{654, 100, 0, 10, 734, 100, 0, 10, 824, 100, 0, 10, 654, 100, 0, 10, 734, 100, 0, 10, 654, 100};
 
 void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
   DEBUG_PRINT("Received MQTT msg: ");
@@ -56,6 +58,7 @@ void onMqttConnect(bool sessionPresent) {
     asprintf(&topic_fail, "%s/%s", MQTT_TOPIC, "failed");
     mqttClient.subscribe(topic_suc, 2);
     mqttClient.subscribe(topic_fail, 2);
+    mqttClient.publish(topic_will, 1, true, "online");
     StopLEDRing();
     SuccessLED();
 }
@@ -78,6 +81,7 @@ void connectToMQTT() {
 
 void InitMQTT()
 {
+    asprintf(&topic_will, "%s/%s", MQTT_TOPIC, "lwt");
 
     mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMQTT));
     StopMQTT();
@@ -87,4 +91,6 @@ void InitMQTT()
     mqttClient.setServer(MQTT_HOST, 1883);
     mqttClient.setClientId(OTA_HOSTNAME);
     mqttClient.setCredentials(MQTT_USERNAME, SECRET_MQTT_PASSWORD);
+    mqttClient.setWill(topic_will, 1, true, "offline");
+    mqttClient.setKeepAlive(5);
 }

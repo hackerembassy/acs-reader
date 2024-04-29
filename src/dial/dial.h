@@ -1,9 +1,10 @@
-void InitDial();
+#ifndef DIAL_H_
+#define DIAL_H_
 
-void ReadDial();
+void InitDial(int interrupt, int pulse);
 
-void StartDial();
+void pincode_handler_task(void *pvParameters);
 
-void StopDial();
+void dial_task(void *pvParameters);
 
-void PrintNum();
+#endif

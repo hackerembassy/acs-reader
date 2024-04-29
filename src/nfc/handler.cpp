@@ -20,6 +20,8 @@
 
 PN532 nfc(Wire, PN532_SCL, PN532_SDA, PN532_IRQ, PN532_RST);
 
+uint32_t reinitNfcTries = 0;
+
 std::vector<uint8_t> ecp_frame{0x6a, 0x02, 0xc8, 0x01, 0x00, 0x03, 0x00, 0x02, 0x79, 0x00, 0x00, 0x00, 0x00}; // TFL
 //std::vector<uint8_t> ecp_frame{0x6a, 0x02, 0xc8, 0x01, 0x00, 0x03, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00}; // LA TAP 
 
@@ -34,7 +36,7 @@ void HexDump(const char* preamble, const std::vector<uint8_t>& data) {
 
 bool InitNFC() {
   if (!nfc.Init()) {
-    StartBeep();
+    //StartBeep();
     DEBUG_PRINT("PN532 Connection Failed\n");
     return false;
   }
@@ -52,10 +54,10 @@ uint8_t ReadAndClassifyTarget(std::vector<uint8_t>& uid) {
   uid.clear();
   uid.insert(uid.begin(), info.uid.begin(), info.uid.end());
 
-  if (info.sak != 0x20 && info.sak != 0x28)
+  /*if (info.sak != 0x20 && info.sak != 0x28)
   {
       return RFID_READ_UID;
-  }
+  }*/
 
   return RFID_READ_EMVCO;
 }
@@ -500,19 +502,22 @@ uint8_t ReadEMVCoPAN(std::vector<uint8_t>& pan) {
   return EMVCO_READ_OK;
 }
 
-std::vector<uint32_t> kSuccessBeeps{2, 3000, 50};
-std::vector<uint32_t> kEmvBeeps{6, 4000, 50, 0, 75, 4000, 50};
-std::vector<uint32_t> kFailBeeps{6, 1000, 200, 0, 200, 1000, 200};
+std::vector<uint32_t> kSuccessBeeps{3000, 50};
+std::vector<uint32_t> kEmvBeeps{4000, 50, 0, 75, 4000, 50};
+std::vector<uint32_t> kFailBeeps{1000, 200, 0, 200, 1000, 200};
 
 void CheckNfcChip() {
-  DEBUG_PRINT("checking NFC chip...\n");
+  //DEBUG_PRINT("checking NFC chip...\n");
   uint32_t version;
 
   if(nfc.GetFirmwareVersion(version)) {
     if(version != 0) {
       if (nfc.SetPassiveActivationRetries(0)){
         if(nfc.SAMConfigure()) {
-          DEBUG_PRINT("NFC is OK\n");
+          //DEBUG_PRINT("NFC is OK\n");
+          if (reinitNfcTries > 10)
+            PublishToMQTT("status", "NFC OK");
+          reinitNfcTries = 0;
           return;
         }
       }
@@ -521,10 +526,25 @@ void CheckNfcChip() {
 
   DEBUG_PRINT("NFC reconfig error, resetting chip..\n");
   if(nfc.Init()) {
-    DEBUG_PRINT("Re-init ok\n");
+    DEBUG_PRINT("NFC re-init ok\n");
+    if(nfc.GetFirmwareVersion(version)) {
+      if(version != 0) {
+        if (nfc.SetPassiveActivationRetries(0)){
+          if(nfc.SAMConfigure()) {
+            DEBUG_PRINT("NFC config is OK\n");
+            PublishToMQTT("status", "NFC OK");
+            reinitNfcTries = 0;
+            return;
+          }
+        }
+      } 
+    }
+    DEBUG_PRINT("NFC error during reconfig");
+    reinitNfcTries++;
     return;
   } else {
-    DEBUG_PRINT("Re-init error.");
+    reinitNfcTries++;
+    DEBUG_PRINT("NFC re-init error.");
     //ESP.restart();
     return;
   }
@@ -542,6 +562,10 @@ void HandleNFC() {
     if(tryNfcTimes > 10) {
       tryNfcTimes = 0;
       CheckNfcChip();
+      if(reinitNfcTries > 5) {
+        PublishToMQTT("status", "NFC fault");
+        reinitNfcTries = 0;
+    }
     }
 
     std::vector<uint8_t> uid;
@@ -550,7 +574,7 @@ void HandleNFC() {
     switch (read_status) {
       case RFID_READ_NO_TAG: // TODO: Fix no tag
         //DEBUG_PRINT("No tag\n");
-        StopLEDRing();
+        //StopLEDRing();
         old_uid.clear();
         break;
       case RFID_READ_TIMED_OUT:
@@ -585,6 +609,7 @@ void HandleNFC() {
         if (ReadEMVCoPAN(pan) == EMVCO_READ_OK) {
           OutputPan("PAN", pan);
           YellowLEDRing();
+          vTaskDelay(pdMS_TO_TICKS(5000));
           //SuccessLED();
           //StopBeep();
           //Beep(kSuccessBeeps);

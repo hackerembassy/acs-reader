@@ -13,5 +13,6 @@ void StopLEDRing();
 void ErrorLED();
 void ErrorPermanentLED();
 void SuccessLED();
+void DialLEDRing(uint8_t pinidx);
 
 #endif
