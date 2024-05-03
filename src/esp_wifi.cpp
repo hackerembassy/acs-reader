@@ -11,6 +11,7 @@ TimerHandle_t wifi_reconnect_timer;
 void ConnectToWiFi(TimerHandle_t) {
   BlueLEDRing();
   DEBUG_PRINT("Connecting to WiFi...\n");
+  WiFi.setHostname(OTA_HOSTNAME);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 }
 
