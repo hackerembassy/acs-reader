@@ -1,10 +1,11 @@
 # acs-reader
 
-Hacker Embassy ACS NFC-EMV reader based on ESP32-C3 and PN532, supporting ECP frames for with some magic ✨ for Express Transit Cards on iPhone/Watch.
+Hacker Embassy ACS NFC-EMV reader based on ESP32-C3 and PN532, supporting ECP frames with some ✨magic✨ for Express Transit Cards on iPhone/Watch.
 
 Allows to:
-- Read UIDs from NFC tags
 - Read PANs from EMVCo cards (including VISA, MasterCard, MIR)
+- Send it to access control server and display authorization result.
+
 
 Our goal is to develop support of complete EMV transaction flow to be able to verify card's credentials using PKI. Unfortunately this functionality requires extensive research and is not available yet.
 
