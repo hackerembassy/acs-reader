@@ -9,6 +9,7 @@ void StartLED();
 void StartLEDRing();
 void BlueLEDRing();
 void YellowLEDRing();
+void FaultLEDRing();
 void StopLEDRing();
 void ErrorLED();
 void ErrorPermanentLED();

@@ -52,6 +52,7 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
 
 void onMqttConnect(bool sessionPresent) {
     DEBUG_PRINT("Connected to MQTT.\n");
+    mqttClient.publish(topic_will, 1, true, "online");
     char *topic_suc;
     char *topic_fail;
     asprintf(&topic_suc, "%s/%s", MQTT_TOPIC, "success");
@@ -92,5 +93,5 @@ void InitMQTT()
     mqttClient.setClientId(OTA_HOSTNAME);
     mqttClient.setCredentials(MQTT_USERNAME, SECRET_MQTT_PASSWORD);
     mqttClient.setWill(topic_will, 1, true, "offline");
-    mqttClient.setKeepAlive(5);
+    mqttClient.setKeepAlive(10);
 }

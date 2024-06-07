@@ -12,6 +12,7 @@
 #define BLUE_RING 4
 #define YELLOW_RING 5
 #define DIAL_RING 6
+#define FAULT_RING 7
 
 
 CRGB leds[NUM_LEDS];                                                                                                    
@@ -29,15 +30,19 @@ void ledTask(void * pvParameters) {
 
   for (;;) {
     if(ledRun) {
-        if(ringRun == WHITE_RING || ringRun == BLUE_RING || ringRun == YELLOW_RING) {
+        if(ringRun == WHITE_RING || ringRun == BLUE_RING || ringRun == YELLOW_RING || ringRun == FAULT_RING) {
             fadeToBlackBy(leds, NUM_LEDS, 128);    //Dims the LEDs by 128/256 (1/2) and thus sets the trail's length.
             if(ringRun == WHITE_RING) leds[ringPosition] = CRGB::White;    //setHue: variable to set the LEDs colour
             else if(ringRun == BLUE_RING) leds[ringPosition] = CRGB::Blue;
             else if(ringRun == YELLOW_RING) leds[ringPosition] = CRGB::Yellow;
+            else if(ringRun == FAULT_RING) leds[ringPosition] = CRGB::Red;
             ringPosition++;    //Shifts all LEDs one step in the currently active direction    
+            
             if (ringPosition == NUM_LEDS) ringPosition = FIRST_LED;    //If one end is reached, reset the position to loop around
             if(ringRun == YELLOW_RING && (millis() - yellowRingStart) > 10000) ringRun = 0;
-            vTaskDelay(pdMS_TO_TICKS(40));
+            
+            if(ringRun == FAULT_RING) vTaskDelay(pdMS_TO_TICKS(120));
+            else vTaskDelay(pdMS_TO_TICKS(40));
         } else if(ringRun != DIAL_RING) {
             ringPosition++;
             if(ringPosition > 100) ledRun = false;
@@ -76,15 +81,23 @@ void StartLED() {
 }
 
 void StartLEDRing() {
-    if(ringRun != WHITE_RING && ringRun != BLUE_RING && ringRun != YELLOW_RING) {
+    if(ringRun != WHITE_RING && ringRun != BLUE_RING && ringRun != YELLOW_RING && ringRun != FAULT_RING) {
         ringPosition = 0;
     }
     ringRun = WHITE_RING;
     ledRun = true;
 }
 
+void FaultLEDRing() {
+    if(ringRun != WHITE_RING && ringRun != BLUE_RING && ringRun != YELLOW_RING && ringRun != FAULT_RING) {
+        ringPosition = 0;
+    }
+    ringRun = FAULT_RING;
+    ledRun = true;
+}
+
 void BlueLEDRing() {
-    if(ringRun != WHITE_RING && ringRun != BLUE_RING && ringRun != YELLOW_RING) {
+    if(ringRun != WHITE_RING && ringRun != BLUE_RING && ringRun != YELLOW_RING && ringRun != FAULT_RING) {
         ringPosition = 0;
     }
     ringRun = BLUE_RING;
@@ -92,7 +105,7 @@ void BlueLEDRing() {
 }
 
 void YellowLEDRing() {
-    if(ringRun != WHITE_RING && ringRun != BLUE_RING && ringRun != YELLOW_RING) {
+    if(ringRun != WHITE_RING && ringRun != BLUE_RING && ringRun != YELLOW_RING && ringRun != FAULT_RING) {
         ringPosition = 0;
     }
     yellowRingStart = millis();
@@ -119,6 +132,10 @@ void DialLEDRing(uint8_t pinidx) {
     {
         leds[i] = CRGB::White;
     }
+}
+
+void FaultRing() {
+
 }
 
 void StopLEDRing() {

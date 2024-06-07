@@ -18,6 +18,8 @@
 #define EMVCO_READ_OK 0x00
 #define EMVCO_READ_FAIL 0x10
 
+bool fault = false;
+
 PN532 nfc(Wire, PN532_SCL, PN532_SDA, PN532_IRQ, PN532_RST);
 
 uint32_t reinitNfcTries = 0;
@@ -38,7 +40,7 @@ bool InitNFC() {
   if (!nfc.Init()) {
     //StartBeep();
     DEBUG_PRINT("PN532 Connection Failed\n");
-    return false;
+    fault = true;
   }
   return true;
 }
@@ -506,7 +508,7 @@ std::vector<uint32_t> kSuccessBeeps{3000, 50};
 std::vector<uint32_t> kEmvBeeps{4000, 50, 0, 75, 4000, 50};
 std::vector<uint32_t> kFailBeeps{1000, 200, 0, 200, 1000, 200};
 
-void CheckNfcChip() {
+int8_t CheckNfcChip() {
   //DEBUG_PRINT("checking NFC chip...\n");
   uint32_t version;
 
@@ -517,12 +519,17 @@ void CheckNfcChip() {
           //DEBUG_PRINT("NFC is OK\n");
           if (reinitNfcTries > 10)
             PublishToMQTT("status", "NFC OK");
+            if(fault) {
+              fault = false;
+              StopLEDRing();
+            }
           reinitNfcTries = 0;
-          return;
+          return 1;
         }
       }
     } 
   }
+
 
   DEBUG_PRINT("NFC reconfig error, resetting chip..\n");
   if(nfc.Init()) {
@@ -533,21 +540,35 @@ void CheckNfcChip() {
           if(nfc.SAMConfigure()) {
             DEBUG_PRINT("NFC config is OK\n");
             PublishToMQTT("status", "NFC OK");
+            if(fault) {
+              fault = false;
+              StopLEDRing();
+            }
             reinitNfcTries = 0;
-            return;
+            return 2;
           }
         }
       } 
     }
+    if(!fault) {
+      fault = true;
+      FaultLEDRing();
+    }
     DEBUG_PRINT("NFC error during reconfig");
     reinitNfcTries++;
-    return;
+    return -1;
   } else {
+    if(!fault) {
+      fault = true;
+      FaultLEDRing();
+    }
     reinitNfcTries++;
     DEBUG_PRINT("NFC re-init error.");
     //ESP.restart();
-    return;
+    return -2;
   }
+
+  return -3;
 }
 
 void HandleNFC() {
@@ -562,10 +583,10 @@ void HandleNFC() {
     if(tryNfcTimes > 10) {
       tryNfcTimes = 0;
       CheckNfcChip();
-      if(reinitNfcTries > 5) {
+      if(reinitNfcTries > 5) { 
         PublishToMQTT("status", "NFC fault");
         reinitNfcTries = 0;
-    }
+      }
     }
 
     std::vector<uint8_t> uid;
