@@ -1,3 +1,4 @@
-.pio
-.vscode
+.pio/
+.vscode/*
+!.vscode/extensions.json
 src/secrets.h
