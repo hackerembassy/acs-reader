@@ -4,6 +4,7 @@
 #include "../utils/debug.h"
 #include "../utils/output.h"
 #include "../utils/led.h"
+#include "config.h"
 
 #include "esp32-hal-gpio.h"
 #include <Arduino.h>

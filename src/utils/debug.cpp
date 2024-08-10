@@ -1,4 +1,5 @@
 #include "debug.h"
+#include "config.h"
 
 void InitDebug() {
 #ifdef DEBUG_ENABLED

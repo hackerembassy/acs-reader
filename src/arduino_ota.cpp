@@ -1,5 +1,5 @@
 #include "utils/debug.h"
-
+#include "config.h"
 #include <ArduinoOTA.h>
 
 TimerHandle_t arduino_ota_timer;

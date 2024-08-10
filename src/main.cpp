@@ -9,6 +9,7 @@
 #include "utils/led.h"
 #include "dial/dial.h"
 #include "mqtt.h"
+#include "config.h"
 #include "nfc/interface/pn532.h"
 #include <memory>
 

@@ -3,6 +3,8 @@
 
 #include "../../utils/debug.h"
 
+#include "config.h"
+
 #include <numeric>
 #include <vector>
 #include <cstdint>

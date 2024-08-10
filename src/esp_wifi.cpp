@@ -4,6 +4,7 @@
 #include "arduino_ota.h"
 #include "utils/debug.h"
 #include "utils/led.h"
+#include "config.h"
 #include "mqtt.h"
 
 TimerHandle_t wifi_reconnect_timer;

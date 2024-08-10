@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <FastLED.h>
 #include "freertos/FreeRTOS.h"
+#include "config.h"
 
 #define STOP_RING 0
 #define WHITE_RING 1

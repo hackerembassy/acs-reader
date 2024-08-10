@@ -1,4 +1,5 @@
 #include "output.h"
+#include "config.h"
 
 void InitOutput() {
   OUTPUT_SERIAL.begin(OUTPUT_SERIAL_SPEED);

@@ -3,6 +3,7 @@
 #include "utils/led.h"
 #include "utils/beeper.h"
 #include "WiFi.h"
+#include "config.h"
 
 #include <AsyncMqttClient.h>
 

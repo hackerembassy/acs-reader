@@ -6,6 +6,7 @@
 #include "../utils/led.h"
 #include "interface/pn532.h"
 #include "tlv/parser.h"
+#include "config.h"
 
 #include <iomanip>
 #include <sstream>

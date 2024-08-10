@@ -3,6 +3,7 @@
 #include "freertos/FreeRTOS.h"
 #include "esp32-hal.h"
 #include <Arduino.h>
+#include "config.h"
 
 
 std::vector<uint32_t> beepTones;
