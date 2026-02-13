@@ -3,3 +3,4 @@
 !.vscode/extensions.json
 src/secrets.h
 .DS_Store
+managed_components/

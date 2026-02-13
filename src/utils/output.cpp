@@ -1,11 +1,14 @@
 #include "output.h"
 #include "config.h"
+#include "esp_log.h"
+
+static const char *TAG = "OUT";
 
 void InitOutput() {
-  OUTPUT_SERIAL.begin(OUTPUT_SERIAL_SPEED);
+  //OUTPUT_SERIAL.begin(OUTPUT_SERIAL_SPEED);
 }
 
 void OutputReadID(const char* type, const char* data) {
-  OUTPUT_SERIAL.printf("%s:%s\n", type, data);
-  //OUTPUT_SERIAL.flush(true);
+  ESP_LOGI(TAG, "%s: %s", type, data);
+  // OUTPUT_SERIAL.flush(true);
 }

@@ -2,6 +2,8 @@
 
 #include "secrets.h"
 
+#define DEBUG_ENABLED
+
 // Debug serial
 #define DEBUG_SERIAL Serial
 
@@ -28,17 +30,17 @@
 // PN532 pins
 #define PN532_IRQ 3
 #define PN532_RST 6  // Must be connected to RSTPDN pin, not RSTO!
-#define PN532_SDA 4
-#define PN532_SCL 5
+#define PN532_SDA 21
+#define PN532_SCL 20
 
 // LED
 #define LED_DATA_PIN  9
 #define NUM_LEDS    8
 #define FIRST_LED 0
-#define BRIGHTNESS  255
+#define BRIGHTNESSLED  255
 
 // Beeper
-#define BEEPER 8
+#define BEEPER 4
 
 // Dial pins
 #define DIAL_INT           10
@@ -67,7 +69,7 @@
 #define LED_DATA_PIN  9
 #define NUM_LEDS    8
 #define FIRST_LED 0
-#define BRIGHTNESS  100
+#define BRIGHTNESSLED  100
 
 // Beeper
 #define BEEPER 6

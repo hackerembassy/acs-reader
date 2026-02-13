@@ -21,6 +21,8 @@
 
 bool fault = false;
 
+static const char *TAG = "nfchdl";
+
 PN532 nfc(Wire, PN532_SCL, PN532_SDA, PN532_IRQ, PN532_RST);
 
 uint32_t reinitNfcTries = 0;
@@ -29,18 +31,20 @@ std::vector<uint8_t> ecp_frame{0x6a, 0x02, 0xc8, 0x01, 0x00, 0x03, 0x00, 0x02, 0
 //std::vector<uint8_t> ecp_frame{0x6a, 0x02, 0xc8, 0x01, 0x00, 0x03, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00}; // LA TAP 
 
 void HexDump(const char* preamble, const std::vector<uint8_t>& data) {
-  DEBUG_PRINT("%s: ", preamble);
+  std::ostringstream output_stream;
+  output_stream << std::hex;
+  // output_stream << std::setw(2) << std::setfill('0');
   for (auto byte : data) {
-    DEBUG_PRINT("%02x", byte);
+    output_stream << static_cast<uint8_t>(byte);
   }
-  DEBUG_PRINT("\n");
+  ESP_LOGI(TAG, "%s: %s", preamble, output_stream.str().c_str());
 }
 
 
 bool InitNFC() {
   if (!nfc.Init()) {
     //StartBeep();
-    DEBUG_PRINT("PN532 Connection Failed\n");
+    ESP_LOGI(TAG, "PN532 Connection Failed\n");
     fault = true;
   }
   return true;
@@ -104,37 +108,37 @@ bool EMVGetAID(std::vector<uint8_t>& aid) {
 
   Parser tlv_parser(ber);
   if (tlv_parser.IsNull()) {
-    DEBUG_PRINT("Failed tlv\n");
+    ESP_LOGW(TAG, "Failed tlv");
     return false;
   }
 
   Parser fci_parser = tlv_parser.GetObject(0x6F);
   if (fci_parser.IsNull()) {
-    DEBUG_PRINT("Failed 0x6F\n");
+    ESP_LOGW(TAG, "Failed 0x6F");
     return false;
   }
 
   Parser fci_prop_template = fci_parser.GetObject(0xA5);
   if (fci_prop_template.IsNull()) {
-    DEBUG_PRINT("Failed 0xA5\n");
+    ESP_LOGW(TAG, "Failed 0xA5");
     return false;
   }
 
   Parser fci_issuer_table = fci_prop_template.GetObject(0xBF0C);
   if (fci_issuer_table.IsNull()) {
-    DEBUG_PRINT("Failed 0xBF0C\n");
+    ESP_LOGW(TAG, "Failed 0xBF0C\n");
     return false;
   }
 
   Parser app_template = fci_issuer_table.GetObject(0x61);
   if (app_template.IsNull()) {
-    DEBUG_PRINT("Failed 0x61\n");
+    ESP_LOGW(TAG, "Failed 0x61");
     return false;
   }
 
   Parser aid_data = app_template.GetObject(0x4F);
   if (aid_data.IsNull()) {
-    DEBUG_PRINT("Failed 0x4F\n");
+    ESP_LOGW(TAG, "Failed 0x4F");
     return false;
   }
 
@@ -203,22 +207,23 @@ bool EMVGetPanFromData(const std::vector<uint8_t>& data,
                        std::vector<uint8_t>& pan) {
   Parser tlv_parser(data);
   if (tlv_parser.IsNull()) {
-    DEBUG_PRINT("Failed tlv\n");
+    ESP_LOGW(TAG, "Failed tlv");
     return false;
   }
 
   for (const auto& path : kPanPaths) {
     Parser current_parser = tlv_parser;
-    DEBUG_PRINT("Testing path on %d\n", tlv_parser.GetData().size());
+    ESP_LOGI(TAG, "Testing path on %d", tlv_parser.GetData().size());
     for (auto tag : path.tags) {
       current_parser = current_parser.GetObject(tag);
-      DEBUG_PRINT("%x -> ", tag);
+      // todo fixme
+      ESP_LOGI(TAG, "%x -> ", tag);
       if (current_parser.IsNull()) {
-        DEBUG_PRINT("null");
+        ESP_LOGI(TAG, "null");
         break;
       }
     }
-    DEBUG_PRINT("\n");
+    ESP_LOGI(TAG, "\n");
 
     if (current_parser.IsNull()) {
       continue;
@@ -263,7 +268,7 @@ bool EMVGetPanFromData(const std::vector<uint8_t>& data,
       }
       return true;
     } else {
-      DEBUG_PRINT("Luhn failed\n");
+      ESP_LOGW(TAG, "Luhn failed");
     }
   }
 
@@ -274,19 +279,19 @@ bool EMVGetPDOL(const std::vector<uint8_t>& pdol_answer,
                 std::vector<uint8_t>& pdol) {
   Parser tlv_parser(pdol_answer);
   if (tlv_parser.IsNull()) {
-    DEBUG_PRINT("Failed tlv\n");
+    ESP_LOGW(TAG, "Failed tlv\n");
     return false;
   }
 
   Parser fci_parser = tlv_parser.GetObject(0x6F);
   if (fci_parser.IsNull()) {
-    DEBUG_PRINT("Failed 0x6F\n");
+    ESP_LOGW(TAG, "Failed 0x6F\n");
     return false;
   }
 
   Parser fci_prop_template = fci_parser.GetObject(0xA5);
   if (fci_prop_template.IsNull()) {
-    DEBUG_PRINT("Failed 0xA5\n");
+    ESP_LOGW(TAG, "Failed 0xA5\n");
     return false;
   }
 
@@ -341,7 +346,7 @@ bool EMVGenerateFakePDOL(const std::vector<uint8_t>& pdol_in,
     for (const auto& fixed_value : kFixedPdolValues) {
       if (fixed_value.tag == tag && fixed_value.data.size() == length) {
         found = true;
-        DEBUG_PRINT("Found tag %04x with length %d\n", tag, length);
+        ESP_LOGI(TAG, "Found tag %04x with length %d\n", tag, length);
         pdol_out.insert(pdol_out.end(), fixed_value.data.begin(),
                         fixed_value.data.end());
         break;
@@ -349,7 +354,7 @@ bool EMVGenerateFakePDOL(const std::vector<uint8_t>& pdol_in,
     }
 
     if (!found) {
-      DEBUG_PRINT("Not found tag %04x with length %d\n", tag, length);
+      ESP_LOGI(TAG, "Not found tag %04x with length %d\n", tag, length);
       pdol_out.resize(pdol_out.size() + length);
     }
   }
@@ -429,7 +434,7 @@ bool EMVGetPanFromAFL(const std::vector<uint8_t>& afl,
         continue;
       }
 
-      DEBUG_PRINT("Record %d, %d: ", sfi, j);
+      ESP_LOGI(TAG, "Record %d, %d: ", sfi, j);
       HexDump("RECORD", record);
 
       if (EMVGetPanFromData(record, pan)) {
@@ -467,7 +472,7 @@ uint8_t ReadEMVCoPAN(std::vector<uint8_t>& pan) {
 
   std::vector<uint8_t> pdol_out;
   if (!EMVGenerateFakePDOL(pdol, pdol_out)) {
-    DEBUG_PRINT("Failed to generate fake PDOL\n");
+    ESP_LOGW(TAG, "Failed to generate fake PDOL\n");
     return EMVCO_READ_FAIL;
   }
 
@@ -506,18 +511,18 @@ uint8_t ReadEMVCoPAN(std::vector<uint8_t>& pan) {
 }
 
 std::vector<uint32_t> kSuccessBeeps{3000, 50};
-std::vector<uint32_t> kEmvBeeps{4000, 50, 0, 75, 4000, 50};
-std::vector<uint32_t> kFailBeeps{1000, 200, 0, 200, 1000, 200};
+std::vector<uint32_t> kEmvBeeps{1000, 20};
+std::vector<uint32_t> kFailBeeps{500, 50, 0, 200, 500, 50};
 
 int8_t CheckNfcChip() {
-  //DEBUG_PRINT("checking NFC chip...\n");
+  //ESP_LOGD(TAG, "checking NFC chip...\n");
   uint32_t version;
 
   if(nfc.GetFirmwareVersion(version)) {
     if(version != 0) {
       if (nfc.SetPassiveActivationRetries(0)){
         if(nfc.SAMConfigure()) {
-          //DEBUG_PRINT("NFC is OK\n");
+          //ESP_LOGD(TAG, "NFC is OK\n");
           if (reinitNfcTries > 10)
             PublishToMQTT("status", "NFC OK");
             if(fault) {
@@ -532,14 +537,14 @@ int8_t CheckNfcChip() {
   }
 
 
-  DEBUG_PRINT("NFC reconfig error, resetting chip..\n");
+  ESP_LOGW(TAG, "NFC reconfig error, resetting chip..\n");
   if(nfc.Init()) {
-    DEBUG_PRINT("NFC re-init ok\n");
+    ESP_LOGW(TAG, "NFC re-init ok\n");
     if(nfc.GetFirmwareVersion(version)) {
       if(version != 0) {
         if (nfc.SetPassiveActivationRetries(0)){
           if(nfc.SAMConfigure()) {
-            DEBUG_PRINT("NFC config is OK\n");
+            ESP_LOGI(TAG, "NFC config is OK\n");
             PublishToMQTT("status", "NFC OK");
             if(fault) {
               fault = false;
@@ -555,7 +560,7 @@ int8_t CheckNfcChip() {
       fault = true;
       FaultLEDRing();
     }
-    DEBUG_PRINT("NFC error during reconfig");
+    ESP_LOGW(TAG, "NFC error during reconfig");
     reinitNfcTries++;
     return -1;
   } else {
@@ -564,7 +569,7 @@ int8_t CheckNfcChip() {
       FaultLEDRing();
     }
     reinitNfcTries++;
-    DEBUG_PRINT("NFC re-init error.");
+    ESP_LOGW(TAG, "NFC re-init error.");
     //ESP.restart();
     return -2;
   }
@@ -573,7 +578,7 @@ int8_t CheckNfcChip() {
 }
 
 void HandleNFC() {
-  DEBUG_PRINT("NFC started on core %d\n", xPortGetCoreID());
+  ESP_LOGI(TAG, "NFC started on core %d\n", xPortGetCoreID());
   uint32_t tryNfcTimes = 0;
 
   std::vector<uint8_t> old_uid;
@@ -595,12 +600,12 @@ void HandleNFC() {
 
     switch (read_status) {
       case RFID_READ_NO_TAG: // TODO: Fix no tag
-        //DEBUG_PRINT("No tag\n");
+        //ESP_LOGI(TAG, "No tag\n");
         //StopLEDRing();
         old_uid.clear();
         break;
       case RFID_READ_TIMED_OUT:
-        DEBUG_PRINT("Timed out\n");
+        ESP_LOGI(TAG, "Timed out\n");
         StopLEDRing();
         old_uid.clear();
         break;
@@ -631,14 +636,15 @@ void HandleNFC() {
         if (ReadEMVCoPAN(pan) == EMVCO_READ_OK) {
           OutputPan("PAN", pan);
           YellowLEDRing();
+          Beep(kSuccessBeeps);
           vTaskDelay(pdMS_TO_TICKS(5000));
           //SuccessLED();
           //StopBeep();
-          //Beep(kSuccessBeeps);
+          
         } else {
-          DEBUG_PRINT("Failed to EMV\n");
+          ESP_LOGW(TAG, "Failed to EMV");
           ErrorLED();
-          //Beep(kFailBeeps);
+          Beep(kFailBeeps);
           //StopBeep();
           old_uid.clear();
         }

@@ -4,8 +4,8 @@
 #define MQTT_H_
 
 void InitMQTT();
-void StopMQTT();
-void StartMQTT();
+void StopMQTTreconnect();
+void StartMQTTreconnect();
 void PublishToMQTT(const char* type, const char* data);
 
 #endif

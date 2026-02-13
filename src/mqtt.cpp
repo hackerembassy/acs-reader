@@ -4,12 +4,22 @@
 #include "utils/beeper.h"
 #include "WiFi.h"
 #include "config.h"
+#include "esp_log.h"
 
 #include <AsyncMqttClient.h>
 
 TimerHandle_t mqttReconnectTimer;
 
+static const char *TAG = "mqtt";
+
 AsyncMqttClient mqttClient;
+
+std::vector<uint32_t> kAuthBeeps{925, 70, 0, 10, 1165, 70, 0, 10, 1386, 70, 0, 10, 1850, 70};
+std::vector<uint32_t> kWrongBeeps{654, 100, 0, 10, 734, 100, 0, 10, 824, 100, 0, 10, 654, 100, 0, 10, 734, 100, 0, 10, 654, 100};
+
+std::vector<uint32_t> kMQTTDisconnectedBeeps{600, 100,   0, 20,   500, 100,   0, 20,   400, 100};
+std::vector<uint32_t> kMQTTConnectedBeeps{400, 100,   0, 20,   300, 100,   0, 20,    900, 100};
+std::vector<uint32_t> kMQTTConnectingBeeps{600, 25,    0, 100,    600, 25};
 
 char *topic_will;
 
@@ -19,74 +29,79 @@ void PublishToMQTT(const char* type, const char* data) {
     mqttClient.publish(topic, 2, false, data);
 }
 
-void StopMQTT() {
+void ConnectToMQTT() {
+  BlueLEDRing();
+  ESP_LOGI(TAG, "Connecting to MQTT...");
+  Beep(kMQTTConnectingBeeps);
+  mqttClient.connect();
+  if(!mqttClient.connected()) FaultLEDRing();
+}
+
+void StopMQTTreconnect() {
     xTimerStop(mqttReconnectTimer, 0);
 }
 
-void StartMQTT() {
+void StartMQTTreconnect() {
     xTimerStart(mqttReconnectTimer, 0);
+    ConnectToMQTT();
 }
 
-std::vector<uint32_t> kAuthBeeps{925, 70, 0, 10, 1165, 70, 0, 10, 1386, 70, 0, 10, 1850, 70};
-std::vector<uint32_t> kWrongBeeps{654, 100, 0, 10, 734, 100, 0, 10, 824, 100, 0, 10, 654, 100, 0, 10, 734, 100, 0, 10, 654, 100};
-
 void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
-  DEBUG_PRINT("Received MQTT msg: ");
-  DEBUG_PRINT(topic);
-  //DEBUG_PRINT(" | ");
-  //DEBUG_PRINT(payload,);
-  DEBUG_PRINT("\n");
+  ESP_LOGI(TAG, "Received MQTT msg: %s", topic);
 
-  char *topic_suc;
-  char *topic_fail;
-  asprintf(&topic_suc, "%s/%s", MQTT_TOPIC, "success");
-  asprintf(&topic_fail, "%s/%s", MQTT_TOPIC, "failed");
+    char *topic_result;
+    char *topic_diag;
+    asprintf(&topic_result, "%s/%s", MQTT_TOPIC, "result");
+    asprintf(&topic_diag, "%s/%s", MQTT_TOPIC, "diag");
 
-  if(strcmp(topic, topic_suc) == 0) {
-    SuccessLED();
-    Beep(kAuthBeeps);
-  } else if(strcmp(topic, topic_fail) == 0) {
-    ErrorLED();
-    Beep(kWrongBeeps);
+  if(strcmp(topic, topic_result) == 0) {
+    if(strncmp(payload, "success", len) == 0) {
+      SuccessLED();
+      Beep(kAuthBeeps);
+    } else if(strncmp(payload, "fail", len) == 0) {
+      ErrorLED();
+      Beep(kWrongBeeps);
+    }
+  } else if(strcmp(topic, topic_diag) == 0) {
+    if(strncmp(payload, "reboot", len) == 0) {
+      ErrorPermanentLED();
+      StartBeep();
+      esp_restart();
+    }
   }
 }
 
 void onMqttConnect(bool sessionPresent) {
-    DEBUG_PRINT("Connected to MQTT.\n");
+    StopMQTTreconnect();
+    ESP_LOGI(TAG, "Connected to MQTT.");
     mqttClient.publish(topic_will, 1, true, "online");
-    char *topic_suc;
-    char *topic_fail;
-    asprintf(&topic_suc, "%s/%s", MQTT_TOPIC, "success");
-    asprintf(&topic_fail, "%s/%s", MQTT_TOPIC, "failed");
-    mqttClient.subscribe(topic_suc, 2);
-    mqttClient.subscribe(topic_fail, 2);
+    Beep(kMQTTConnectedBeeps);
+    char *topic_result;
+    char *topic_diag;
+    asprintf(&topic_result, "%s/%s", MQTT_TOPIC, "result");
+    asprintf(&topic_diag, "%s/%s", MQTT_TOPIC, "diag");
+    mqttClient.subscribe(topic_result, 2);
+    mqttClient.subscribe(topic_diag, 2);
     mqttClient.publish(topic_will, 1, true, "online");
     StopLEDRing();
     SuccessLED();
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
-  DEBUG_PRINT("Disconnected from MQTT.\n");
-  BlueLEDRing();
+  ESP_LOGI(TAG, "Disconnected from MQTT.");
   if (WiFi.isConnected()) {
-    StartMQTT();
+    Beep(kMQTTDisconnectedBeeps);
+    FaultLEDRing();
+    StartMQTTreconnect();
   }
 }
-
-void connectToMQTT() {
-  BlueLEDRing();
-  DEBUG_PRINT("Connecting to MQTT...\n");
-  mqttClient.connect();
-}
-
-
 
 void InitMQTT()
 {
     asprintf(&topic_will, "%s/%s", MQTT_TOPIC, "lwt");
 
-    mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMQTT));
-    StopMQTT();
+    mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(10000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(ConnectToMQTT));
+    StopMQTTreconnect();
     mqttClient.onConnect(onMqttConnect);
     mqttClient.onDisconnect(onMqttDisconnect);
     mqttClient.onMessage(onMqttMessage);

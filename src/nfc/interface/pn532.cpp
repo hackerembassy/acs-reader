@@ -9,6 +9,10 @@
 #include <vector>
 #include <cstdint>
 
+#include "esp_log.h"
+
+static const char *TAG = "pn532";
+
 std::vector<uint8_t> kPN532Ack{0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00};
 
 // Function to calculate CRC16
@@ -41,6 +45,9 @@ std::vector<uint8_t> CalculateCRC16A(const std::vector<uint8_t>& data) {
 bool PN532::Init() {
   pinMode(this->rst_pin_, OUTPUT);
   pinMode(this->irq_pin_, INPUT);
+  // pinMode(6, INPUT);
+  // pinMode(20, INPUT);
+  // pinMode(21, INPUT);
 
   digitalWrite(this->rst_pin_, HIGH);
   digitalWrite(this->rst_pin_, LOW);
@@ -48,33 +55,35 @@ bool PN532::Init() {
   digitalWrite(this->rst_pin_, HIGH);
   delay(10);
 
-  DEBUG_PRINT("start i2c...\n");
+  ESP_LOGI(TAG, "start i2c...\n");
 
+  // this->wire_.setPins(this->sda_pin_, this->scl_pin_);
+  // this->wire_.setClock(50000);
   this->wire_.begin(this->sda_pin_, this->scl_pin_);
   this->wire_.setBufferSize(PN532_MAX_COMMAND_SIZE * 2u);
 
   uint32_t version;
   if (!this->GetFirmwareVersion(version)) {
-    DEBUG_PRINT("ver get failed\n");
+    ESP_LOGW(TAG, "ver get failed\n");
     return false;
   }
 
   if (version == 0) {
-    DEBUG_PRINT("ver=0\n");
+    ESP_LOGI(TAG, "ver=0\n");
     return false;
   }
 
   if (!this->SetPassiveActivationRetries(0)) {
-    DEBUG_PRINT("SPAR failed\n");
+    ESP_LOGW(TAG, "SPAR failed\n");
     return false;
   }
 
   if (!this->SAMConfigure()) {
-    DEBUG_PRINT("SAMconf failed\n");
+    ESP_LOGW(TAG, "SAMconf failed\n");
     return false;
   }
 
-  DEBUG_PRINT("NFC: everything ok\n");
+  ESP_LOGI(TAG, "NFC: everything ok\n");
 
   return true;
 }
@@ -86,15 +95,15 @@ bool PN532::FindTag(NFCTagInfo& info, uint32_t timeout) {
     return false;
   }
   if (answer[0] != PN532_COMMAND_INLISTPASSIVETARGET_RESPONSE) {
-    DEBUG_PRINT("PN532 error: not ILPT resp\n");
+    ESP_LOGD(TAG, "PN532 error: not ILPT resp\n");
     return false;
   }
   if (answer[1] != 1) {
-   // DEBUG_PRINT("PN532 error: NbTg != 1\n");
+   // ESP_LOGI(TAG, "PN532 error: NbTg != 1\n");
     return false;
   }
     if (answer.size() < 7) {
-   // DEBUG_PRINT("PN532 error: Size < 7\n");
+   // ESP_LOGI(TAG, "PN532 error: Size < 7\n");
     return false;
   }
   info.atqa = (answer[3] << 8ul) | answer[4];
@@ -121,7 +130,7 @@ bool PN532::FindTag(NFCTagInfo& info, uint32_t timeout) {
 
 bool PN532::BroadcastECP(const std::vector<uint8_t>& data) {
 
-  //DEBUG_PRINT("PN532 ecp: writing register\n");
+  //ESP_LOGD(TAG, "PN532 ecp: writing register\n");
   std::vector<uint8_t> answer_register;
   if (!this->CommandExchange(
           {PN532_COMMAND_WRITEREGISTER_REQUEST,
@@ -133,16 +142,16 @@ bool PN532::BroadcastECP(const std::vector<uint8_t>& data) {
   }
 
   if (answer_register.size() != 1) {
-    DEBUG_PRINT("PN532 error: register response != 1\n");
+    ESP_LOGW(TAG, "PN532 error: register response != 1\n");
     return false;
   }
 
   if (answer_register[0] != PN532_COMMAND_WRITEREGISTER_RESPONSE) {
-    DEBUG_PRINT("PN532 error: not writereg resp\n");
+    ESP_LOGW(TAG, "PN532 error: not writereg resp\n");
     return false;
   }
 
-  //DEBUG_PRINT("PN532 ecp: register write OK\n");
+  //ESP_LOGW(TAG, "PN532 ecp: register write OK\n");
 
   std::vector<uint8_t> request{PN532_COMMAND_INCOMMUNICATETHRU_REQUEST};
   std::vector<uint8_t> answer;
@@ -151,7 +160,7 @@ bool PN532::BroadcastECP(const std::vector<uint8_t>& data) {
   request.insert(request.end(), data.begin(), data.end());
   request.insert(request.end(), crc_result.begin(), crc_result.end());
   
-  //DEBUG_PRINT("PN532 ecp: sending frame\n");
+  //ESP_LOGD(TAG, "PN532 ecp: sending frame\n");
   this->CommandExchange(request, answer, 100);
 
   // if (!) {
@@ -160,15 +169,15 @@ bool PN532::BroadcastECP(const std::vector<uint8_t>& data) {
   // }
 
   // if (answer.size() < 2) {
-  //   DEBUG_PRINT("PN532 error: size < 2\n");
+  //   ESP_LOGW(TAG, "PN532 error: size < 2\n");
   //   return false;
   // }
   // if (answer[0] != PN532_COMMAND_INCOMMUNICATETHRU_RESPONSE) {
-  //   DEBUG_PRINT("PN532 error: not IDEx resp\n");
+  //   ESP_LOGW(TAG, "PN532 error: not IDEx resp\n");
   //   return false;
   // }
 
-  //DEBUG_PRINT("PN532 ecp: frame sent\n");
+  //ESP_LOGW(TAG, "PN532 ecp: frame sent\n");
   return true;
 }
 
@@ -181,15 +190,15 @@ bool PN532::ApduExchange(const std::vector<uint8_t>& in_data,
     return false;
   }
   if (answer.size() < 2) {
-    DEBUG_PRINT("PN532 error: size < 2\n");
+    ESP_LOGW(TAG, "PN532 error: size < 2\n");
     return false;
   }
   if (answer[0] != PN532_COMMAND_INDATAEXCHANGE_RESPONSE) {
-    DEBUG_PRINT("PN532 error: not IDEx resp\n");
+    ESP_LOGW(TAG, "PN532 error: not IDEx resp\n");
     return false;
   }
   if ((answer[1] & 0x3F) != 0) {
-    DEBUG_PRINT("Failed to APDU: %02x\n", answer[1] & 0x3F);
+    ESP_LOGW(TAG, "Failed to APDU: %02x\n", answer[1] & 0x3F);
     return false;
   }
   out_data.clear();
@@ -255,6 +264,8 @@ bool PN532::ReadAck(uint32_t timeout) {
   if (!this->ReadRdy()) {
     return false;
   }
+
+  delay(2);
 
   std::vector<uint8_t> ack_buffer(kPN532Ack.size());
   if (this->wire_.readBytes(ack_buffer.data(), ack_buffer.size()) !=
@@ -363,17 +374,17 @@ bool PN532::CommandExchange(const std::vector<uint8_t>& in_data,
   }
 
   if (!this->SendCommandData(in_data)) {
-    DEBUG_PRINT("PN532 error: sending cmd\n");
+    ESP_LOGW(TAG, "PN532 error: sending cmd\n");
     return false;
   }
 
   if (!this->ReadAck(timeout)) {
-    DEBUG_PRINT("PN532 error: no ack\n");
+    ESP_LOGW(TAG, "PN532 error: no ack\n");
     return false;
   }
 
   if (!this->ReadResponse(out_data, timeout)) {
-        DEBUG_PRINT("PN532 error: no rsp after ack\n");
+        ESP_LOGW(TAG, "PN532 error: no rsp after ack\n");
     return false;
   }
 
@@ -389,7 +400,7 @@ bool PN532::WaitReady(uint32_t timeout) {
     delay(10);
     elapsed += 10;
   }
-  DEBUG_PRINT("PN532 error: wait rdy timeout\n");
+  ESP_LOGW(TAG, "PN532 error: wait rdy timeout\n");
   return false;
 }
 

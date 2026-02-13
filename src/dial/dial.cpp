@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <sstream>
 
+static const char *TAG = "dial";
 
 #define MAX_PIN_WAIT_TIME 5000
 
@@ -53,7 +54,7 @@ void pincode_handler_task(void *pvParameters)
 
     unsigned long time_num_last_touch;
 
-    DEBUG_PRINT("Dial started on core %d\n", xPortGetCoreID());
+    ESP_LOGI(TAG, "Dial started on core %d", xPortGetCoreID());
 
     for (;;) {
 
@@ -79,7 +80,7 @@ void pincode_handler_task(void *pvParameters)
             received_pin[received_idx] = pulse_cnt;
             received_idx++;
             DialLEDRing(received_idx);
-            DEBUG_PRINT("DIAL recv\n");
+            ESP_LOGI(TAG, "DIAL recv");
             pulse_cnt = 0;
             //Beep(kDialBeep);
         }
@@ -87,7 +88,7 @@ void pincode_handler_task(void *pvParameters)
         if (received_idx == 6) {
             char received_pin_buf[16];
             sprintf(received_pin_buf, "%d%d%d%d%d%d", received_pin[0], received_pin[1],received_pin[2],received_pin[3],received_pin[4],received_pin[5]);
-            //DEBUG_PRINT("%s\n", received_pin_buf);
+            //ESP_LOGD(TAG, "%s", received_pin_buf);
             YellowLEDRing();
             Beep(kDialCompleteBeep);
             PublishToMQTT("PIN", received_pin_buf);
@@ -95,7 +96,7 @@ void pincode_handler_task(void *pvParameters)
         }
 
         if ((long)(millis() - time_num_last_touch) >= MAX_PIN_WAIT_TIME) {
-            DEBUG_PRINT("MAX_PIN_WAIT_TIME limit\n");
+            ESP_LOGI(TAG, "MAX_PIN_WAIT_TIME limit");
             StopLEDRing();
             goto out;
         }

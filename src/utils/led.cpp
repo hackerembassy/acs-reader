@@ -5,6 +5,9 @@
 #include <FastLED.h>
 #include "freertos/FreeRTOS.h"
 #include "config.h"
+#include "esp_log.h"
+
+static const char *TAG = "led";
 
 #define STOP_RING 0
 #define WHITE_RING 1
@@ -24,10 +27,12 @@ bool ledRun = false;
 
 unsigned long yellowRingStart;
 
+
+
 TaskHandle_t LedTask;
 
 void ledTask(void * pvParameters) {
-  DEBUG_PRINT("LED started on core %d\n", xPortGetCoreID());
+  ESP_LOGI(TAG, "LED started on core %d", xPortGetCoreID());
 
   for (;;) {
     if(ledRun) {
@@ -35,7 +40,7 @@ void ledTask(void * pvParameters) {
             fadeToBlackBy(leds, NUM_LEDS, 128);    //Dims the LEDs by 128/256 (1/2) and thus sets the trail's length.
             if(ringRun == WHITE_RING) leds[ringPosition] = CRGB::White;    //setHue: variable to set the LEDs colour
             else if(ringRun == BLUE_RING) leds[ringPosition] = CRGB::Blue;
-            else if(ringRun == YELLOW_RING) leds[ringPosition] = CRGB::Yellow;
+            else if(ringRun == YELLOW_RING) leds[ringPosition] = CRGB::Orange;
             else if(ringRun == FAULT_RING) leds[ringPosition] = CRGB::Red;
             ringPosition++;    //Shifts all LEDs one step in the currently active direction    
             
@@ -60,11 +65,11 @@ void ledTask(void * pvParameters) {
 
 void InitLED() {
     FastLED.addLeds<LED_TYPE,LED_DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS)
-      .setCorrection(TypicalLEDStrip)
-      .setDither(BRIGHTNESS < 255);
+     .setCorrection(TypicalLEDStrip)
+     .setDither(BRIGHTNESSLED < 255);
 
     // set master brightness control
-    FastLED.setBrightness(BRIGHTNESS);
+    FastLED.setBrightness(BRIGHTNESSLED);
     ledRun = false;
     FastLED.show();
     yellowRingStart = 0;
